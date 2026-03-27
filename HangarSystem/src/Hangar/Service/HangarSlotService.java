@@ -13,6 +13,7 @@ public class HangarSlotService {
     public HangarSlotService() {
         this.dao = new HangarSlotDAO();
     }
+
     public ServiceResult<List<HangarSlot>> viewAllHangarsAndSlots() {
         List<HangarSlot> slots = dao.findAll();
         if (slots.isEmpty()) {
@@ -20,6 +21,7 @@ public class HangarSlotService {
         }
         return ServiceResult.success(slots);
     }
+
     public ServiceResult<List<HangarSlot>> viewSlotsByHangar(String hangarName) {
         List<HangarSlot> slots = dao.findByHangar(hangarName);
         if (slots.isEmpty()) {
@@ -46,7 +48,8 @@ public class HangarSlotService {
         }
         return ServiceResult.success(available);
     }
-Result<HangarSlot> checkSlotByCode(String slotCode) {
+
+    public ServiceResult<HangarSlot> checkSlotByCode(String slotCode) {
         HangarSlot slot = dao.findBySlotCode(slotCode);
 
         if (slot == null) {
