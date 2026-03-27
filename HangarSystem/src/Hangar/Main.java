@@ -1,4 +1,4 @@
-
+package Hangar;
 
 import UI.HangarSlotUI;
 import java.util.Scanner;
