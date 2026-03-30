@@ -120,4 +120,15 @@ public class UserDAO {
             System.out.println("Could not get database path: " + e.getMessage());
         }
     }
+
+    public int countAdmins() {
+        String sql = "SELECT COUNT(*) FROM user WHERE admin = 1";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) {
+            System.out.println("Count admins failed: " + e.getMessage());
+        }
+        return 0;
+    }
 }
