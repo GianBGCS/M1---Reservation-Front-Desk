@@ -47,7 +47,7 @@ public class ReservationUI {
                     runViewByCustomer();
                     break;
                 case VIEW_BY_AIRCRAFT:
-                    System.out.println("\n  [View by Aircraft — not yet implemented]\n");
+                    runViewByAircraft();
                     break;
                 case LOGOUT:
                     System.out.println("\n  Logging out...\n");
@@ -239,6 +239,28 @@ public class ReservationUI {
         System.out.println(ReservationUtil.DIVIDER);
         promptEnterToContinue();
     }
+
+    private void runViewByAircraft() {
+        printHeader();
+        System.out.println("  VIEW RESERVATIONS BY AIRCRAFT");
+        System.out.println();
+        String tail = promptString("  Enter aircraft tail number: ");
+        if (tail == null) { printCancelled(); return; }
+        tail = tail.toUpperCase();
+        List<Reservation> list = service.getReservationsByAircraft(tail);
+        System.out.println();
+        System.out.println(ReservationUtil.DIVIDER);
+        if (list.isEmpty()) {
+            System.out.println("  No reservations found for aircraft: " + tail);
+        } else {
+            System.out.println("  RESERVATIONS FOR AIRCRAFT: " + tail);
+            System.out.println(ReservationUtil.DIVIDER);
+            for (Reservation r : list) System.out.println(r);
+        }
+        System.out.println(ReservationUtil.DIVIDER);
+        promptEnterToContinue();
+    }
+
 
     private void printMenu() {
         System.out.println(ReservationUtil.DIVIDER);
