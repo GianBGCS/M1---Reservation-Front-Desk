@@ -167,4 +167,25 @@ public class ReservationDAO {
                 .status(rs.getString("status"))
                 .build();
     }
+
+    private static final String SQL_FIND_BY_ID =
+            "SELECT * FROM reservations WHERE id = ?";
+
+    private static final String SQL_UPDATE =
+            "UPDATE reservations " +
+                    "SET aircraft_tail_number=?, hangar_slot=?, start_date=?, end_date=? " +
+                    "WHERE id=?";
+
+    public Reservation findById(int id) {
+        try (Connection conn      = getConnection();
+             PreparedStatement ps = conn.prepareStatement(SQL_FIND_BY_ID)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapRow(rs);
+            }
+        } catch (SQLException e) {
+            System.err.println("  [DB ERROR] findById: " + e.getMessage());
+        }
+        return null;
+    }
 }

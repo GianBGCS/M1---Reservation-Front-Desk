@@ -82,6 +82,24 @@ public class ReservationService {
         return suitable;
     }
 
+    public ServiceResult cancelReservation(int reservationId) {
+        Reservation existing = dao.findById(reservationId);
+        if (existing == null)
+            return ServiceResult.failure("Reservation ID " + reservationId + " not found.");
+        if (!existing.getStatus().equals(Reservation.STATUS_ACTIVE))
+            return ServiceResult.failure("Reservation is already " + existing.getStatus() + ".");
+        if (!LocalDate.now().isBefore(existing.getStartDate()))
+            return ServiceResult.failure(
+                    "Cannot cancel: the aircraft's start date has already passed.");
+
+        if (!dao.updateStatus(reservationId, Reservation.STATUS_CANCELLED))
+            return ServiceResult.failure("Database error: status could not be updated.");
+
+        existing.setStatus(Reservation.STATUS_CANCELLED);
+        return ServiceResult.success(existing);
+    }
+
+
     public List<Reservation> getAllReservations()                 { return dao.findAll(); }
     public List<Reservation> getReservationsByCustomer(String n) { return dao.findByCustomer(n); }
     public List<Reservation> getReservationsByAircraft(String t) { return dao.findByAircraft(t); }
