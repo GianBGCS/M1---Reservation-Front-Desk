@@ -104,4 +104,5 @@ public class ReservationService {
     public List<Reservation> getReservationsByCustomer(String n) { return dao.findByCustomer(n); }
     public List<Reservation> getReservationsByAircraft(String t) { return dao.findByAircraft(t); }
     public boolean           updateStatus(int id, String status) { return dao.updateStatus(id, status); }
+    public Reservation findById(int id) { return dao.findById(id); }
 }

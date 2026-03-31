@@ -40,7 +40,7 @@ public class ReservationUI {
                     System.out.println("\n  [Modify Reservation — not yet implemented]\n");
                     break;
                 case CANCEL_RESERVATION:
-                    System.out.println("\n  [Cancel Reservation — not yet implemented]\n");
+                    runCancelReservation();
                     break;
                 case VIEW_BY_CUSTOMER:
                     System.out.println("\n  [View by Customer — not yet implemented]\n");
@@ -102,7 +102,33 @@ public class ReservationUI {
                 customerName, tailNumber, hangarSlot,
                 wingspan, length, startDate, endDate);
 
-        printResult(result);
+        printResult("Reservation created successfully!", result);
+        promptEnterToContinue();
+    }
+
+    private void runCancelReservation() {
+        printHeader();
+        System.out.println("  CANCEL RESERVATION");
+        System.out.println();
+
+        Integer id = promptPositiveInt("  Enter Reservation ID: ");
+        if (id == null) { printCancelled(); return; }
+
+        Reservation res = service.findById(id);
+        if (res == null) {
+            System.out.println("\n  [!] Reservation ID " + id + " not found.\n");
+            promptEnterToContinue(); return;
+        }
+
+        System.out.println();
+        System.out.println("  Reservation to cancel:");
+        System.out.println(res);
+        System.out.println();
+        System.out.print("  Confirm cancellation? [Y/N]: ");
+        if (!ReservationUtil.isConfirmed(scanner.nextLine().trim())) { printCancelled(); return; }
+
+        ServiceResult result = service.cancelReservation(id);
+        printResult("Reservation #" + id + " has been CANCELLED.", result);
         promptEnterToContinue();
     }
 
@@ -166,11 +192,11 @@ public class ReservationUI {
         System.out.println(ReservationUtil.DIVIDER);
     }
 
-    private void printResult(ServiceResult result) {
+    private void printResult(String successMessage, ServiceResult result) {
         System.out.println();
         System.out.println(ReservationUtil.DIVIDER);
         if (result.isSuccess()) {
-            System.out.println("  [SUCCESS] Reservation created successfully!");
+            System.out.println("  [SUCCESS] " + successMessage);
             System.out.println(ReservationUtil.DIVIDER);
             System.out.println(result.getData());
         } else {
@@ -179,9 +205,7 @@ public class ReservationUI {
                 System.out.println();
                 System.out.println("  Suggested available slots for your aircraft:");
                 System.out.println();
-                for (String alt : result.getAlternatives()) {
-                    System.out.println(alt);
-                }
+                for (String alt : result.getAlternatives()) System.out.println(alt);
             }
         }
         System.out.println(ReservationUtil.DIVIDER);
@@ -250,4 +274,18 @@ public class ReservationUI {
         scanner.nextLine();
         System.out.println();
     }
+
+    private Integer promptPositiveInt(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String input = scanner.nextLine().trim();
+            if (input.equals("0")) return null;
+            try {
+                int val = Integer.parseInt(input);
+                if (val > 0) return val;
+            } catch (NumberFormatException ignored) {}
+            System.out.println("  [!] Invalid ID. Enter a positive number (0 to cancel).");
+        }
+    }
+
 }
