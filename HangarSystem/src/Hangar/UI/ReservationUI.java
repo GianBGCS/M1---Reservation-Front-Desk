@@ -44,7 +44,7 @@ public class ReservationUI {
                     runCancelReservation();
                     break;
                 case VIEW_BY_CUSTOMER:
-                    System.out.println("\n  [View by Customer — not yet implemented]\n");
+                    runViewByCustomer();
                     break;
                 case VIEW_BY_AIRCRAFT:
                     System.out.println("\n  [View by Aircraft — not yet implemented]\n");
