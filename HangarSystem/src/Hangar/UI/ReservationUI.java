@@ -37,7 +37,7 @@ public class ReservationUI {
                     runNewReservation();
                     break;
                 case MODIFY_RESERVATION:
-                    System.out.println("\n  [Modify Reservation — not yet implemented]\n");
+                    runModifyReservation();
                     break;
                 case CANCEL_RESERVATION:
                     runCancelReservation();
