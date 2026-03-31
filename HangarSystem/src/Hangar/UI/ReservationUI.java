@@ -7,6 +7,7 @@ import Util.ReservationUtil.MenuAction;
 import Util.ReservationUtil.ServiceResult;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Scanner;
 
 public class ReservationUI {
@@ -216,6 +217,26 @@ public class ReservationUI {
         ServiceResult result = service.modifyReservation(
                 id, newTail, newSlot, wingspan, length, newStart, newEnd);
         printResult("Reservation modified successfully!", result);
+        promptEnterToContinue();
+    }
+
+    private void runViewByCustomer() {
+        printHeader();
+        System.out.println("  VIEW RESERVATIONS BY CUSTOMER");
+        System.out.println();
+        String name = promptString("  Enter customer name: ");
+        if (name == null) { printCancelled(); return; }
+        List<Reservation> list = service.getReservationsByCustomer(name);
+        System.out.println();
+        System.out.println(ReservationUtil.DIVIDER);
+        if (list.isEmpty()) {
+            System.out.println("  No reservations found for: " + name);
+        } else {
+            System.out.println("  RESERVATIONS FOR: " + name.toUpperCase());
+            System.out.println(ReservationUtil.DIVIDER);
+            for (Reservation r : list) System.out.println(r);
+        }
+        System.out.println(ReservationUtil.DIVIDER);
         promptEnterToContinue();
     }
 
