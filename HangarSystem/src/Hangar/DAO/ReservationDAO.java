@@ -188,4 +188,19 @@ public class ReservationDAO {
         }
         return null;
     }
+
+    public boolean update(Reservation r) {
+        try (Connection conn      = getConnection();
+             PreparedStatement ps = conn.prepareStatement(SQL_UPDATE)) {
+            ps.setString(1, r.getAircraftTailNumber());
+            ps.setString(2, r.getHangarSlot());
+            ps.setString(3, r.getStartDate().format(Reservation.DATE_FORMAT));
+            ps.setString(4, r.getEndDate().format(Reservation.DATE_FORMAT));
+            ps.setInt   (5, r.getReservationId());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("  [DB ERROR] update: " + e.getMessage());
+        }
+        return false;
+    }
 }

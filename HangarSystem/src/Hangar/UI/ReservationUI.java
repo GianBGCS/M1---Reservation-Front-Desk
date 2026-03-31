@@ -132,6 +132,93 @@ public class ReservationUI {
         promptEnterToContinue();
     }
 
+    private void runModifyReservation() {
+        printHeader();
+        System.out.println("  MODIFY RESERVATION");
+        System.out.println();
+
+        Integer id = promptPositiveInt("  Enter Reservation ID: ");
+        if (id == null) { printCancelled(); return; }
+
+        Reservation current = service.findById(id);
+        if (current == null) {
+            System.out.println("\n  [!] Reservation ID " + id + " not found.\n");
+            promptEnterToContinue(); return;
+        }
+        if (!current.getStatus().equals(Reservation.STATUS_ACTIVE)) {
+            System.out.println("\n  [!] Only ACTIVE reservations can be modified. Status: "
+                    + current.getStatus() + "\n");
+            promptEnterToContinue(); return;
+        }
+
+        System.out.println();
+        System.out.println("  Current reservation:");
+        System.out.println(current);
+        System.out.println();
+        System.out.println("  Press Enter to keep the current value for any field.");
+        System.out.println();
+
+        String newTail = promptStringOrKeep(
+                "  Aircraft tail number [" + current.getAircraftTailNumber() + "]: ",
+                current.getAircraftTailNumber());
+        if (newTail == null) { printCancelled(); return; }
+        newTail = newTail.toUpperCase();
+
+        double wingspan, length;
+        Aircraft registered = aircraftService.findByTailNumber(newTail);
+        if (registered != null) {
+            wingspan = registered.getWingspan();
+            length   = registered.getLength();
+            System.out.printf("  Aircraft found: Wingspan %.1f m | Length %.1f m%n",
+                    wingspan, length);
+        } else {
+            System.out.println("  Aircraft not in registry. Enter dimensions for slot validation:");
+            Double ws = promptPositiveDouble("  Wingspan (meters): ");
+            if (ws == null) { printCancelled(); return; }
+            Double ln = promptPositiveDouble("  Length   (meters): ");
+            if (ln == null) { printCancelled(); return; }
+            wingspan = ws;
+            length   = ln;
+        }
+
+        printSlotTable();
+        String newSlot = promptHangarSlotOrKeep(current.getHangarSlot());
+        if (newSlot == null) { printCancelled(); return; }
+
+        LocalDate newStart = promptDateOrKeep(
+                "  Start date [" + current.getStartDate().format(Reservation.DATE_FORMAT) + "]: ",
+                current.getStartDate());
+        if (newStart == null) { printCancelled(); return; }
+
+        LocalDate newEnd = promptEndDateOrKeep(
+                "  End date   [" + current.getEndDate().format(Reservation.DATE_FORMAT) + "]: ",
+                current.getEndDate(), newStart);
+        if (newEnd == null) { printCancelled(); return; }
+
+        System.out.println();
+        System.out.println(ReservationUtil.DIVIDER);
+        System.out.println("  CONFIRM CHANGES — Reservation #" + id);
+        System.out.println(ReservationUtil.DIVIDER);
+        System.out.printf("  Aircraft Tail No : %s → %s%n",
+                current.getAircraftTailNumber(), newTail);
+        System.out.printf("  Wingspan / Length: %.1f m / %.1f m%n", wingspan, length);
+        System.out.printf("  Hangar Slot      : %s → %s%n", current.getHangarSlot(), newSlot);
+        System.out.printf("  Start Date       : %s → %s%n",
+                current.getStartDate().format(Reservation.DATE_FORMAT),
+                newStart.format(Reservation.DATE_FORMAT));
+        System.out.printf("  End Date         : %s → %s%n",
+                current.getEndDate().format(Reservation.DATE_FORMAT),
+                newEnd.format(Reservation.DATE_FORMAT));
+        System.out.println(ReservationUtil.DIVIDER);
+        System.out.print("  Confirm? [Y/N]: ");
+        if (!ReservationUtil.isConfirmed(scanner.nextLine().trim())) { printCancelled(); return; }
+
+        ServiceResult result = service.modifyReservation(
+                id, newTail, newSlot, wingspan, length, newStart, newEnd);
+        printResult("Reservation modified successfully!", result);
+        promptEnterToContinue();
+    }
+
     private void printMenu() {
         System.out.println(ReservationUtil.DIVIDER);
         System.out.println("      AVIATION HANGAR RESERVATION AND FRONT DESK SYSTEM");
@@ -287,5 +374,46 @@ public class ReservationUI {
             System.out.println("  [!] Invalid ID. Enter a positive number (0 to cancel).");
         }
     }
+
+    private String promptHangarSlotOrKeep(String current) {
+        while (true) {
+            System.out.print("  Hangar slot [" + current + "] (Enter to keep, 0 to cancel): ");
+            String input = scanner.nextLine().trim().toUpperCase();
+            if (input.equals("0")) return null;
+            if (input.isEmpty())   return current;
+            if (ReservationUtil.isValidSlot(input)) return input;
+            System.out.println("  [!] Invalid slot. Choose from the table above.");
+        }
+    }
+
+    private LocalDate promptDateOrKeep(String prompt, LocalDate current) {
+        System.out.print(prompt);
+        String input = scanner.nextLine().trim();
+        if (input.equals("0")) return null;
+        if (input.isEmpty())   return current;
+        LocalDate date = ReservationUtil.validateDate(input);
+        if (date != null) return date;
+        System.out.println("  [!] Invalid format. Keeping current: "
+                + current.format(Reservation.DATE_FORMAT));
+        return current;
+    }
+
+    private LocalDate promptEndDateOrKeep(String prompt, LocalDate current, LocalDate start) {
+        while (true) {
+            LocalDate end = promptDateOrKeep(prompt, current);
+            if (end == null) return null;
+            if (ReservationUtil.validateEndDate(start, end)) return end;
+            System.out.println("  [!] End date must be on or after start date.");
+        }
+    }
+
+    private String promptStringOrKeep(String prompt, String current) {
+        System.out.print(prompt);
+        String input = scanner.nextLine().trim();
+        if (input.equals("0")) return null;
+        if (input.isEmpty())   return current;
+        return input.isBlank() ? current : input;
+    }
+
 
 }

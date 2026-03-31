@@ -99,6 +99,43 @@ public class ReservationService {
         return ServiceResult.success(existing);
     }
 
+    public ServiceResult modifyReservation(int reservationId,
+                                           String    newTailNumber,
+                                           String    newHangarSlot,
+                                           double    wingspan,
+                                           double    length,
+                                           LocalDate newStartDate,
+                                           LocalDate newEndDate) {
+        Reservation existing = dao.findById(reservationId);
+        if (existing == null)
+            return ServiceResult.failure("Reservation ID " + reservationId + " not found.");
+        if (!existing.getStatus().equals(Reservation.STATUS_ACTIVE))
+            return ServiceResult.failure("Only ACTIVE reservations can be modified.");
+
+        if (!ReservationUtil.isValidSlot(newHangarSlot))
+            return ServiceResult.failure("Hangar slot '" + newHangarSlot + "' does not exist.");
+
+        if (!ReservationUtil.doesAircraftFit(newHangarSlot, wingspan, length))
+            return ServiceResult.failure(
+                    ReservationUtil.buildSizeMismatchMessage(newHangarSlot, wingspan, length),
+                    findSuitableSlots(wingspan, length, newStartDate, newEndDate));
+
+        if (dao.hasOverlap(newHangarSlot, newStartDate, newEndDate, reservationId))
+            return ServiceResult.failure(
+                    "Slot " + newHangarSlot + " is already booked for those dates.",
+                    findSuitableSlots(wingspan, length, newStartDate, newEndDate));
+
+        existing.setAircraftTailNumber(newTailNumber);
+        existing.setHangarSlot(newHangarSlot);
+        existing.setStartDate(newStartDate);
+        existing.setEndDate(newEndDate);
+
+        if (!dao.update(existing))
+            return ServiceResult.failure("Database error: reservation could not be updated.");
+
+        return ServiceResult.success(existing);
+    }
+
 
     public List<Reservation> getAllReservations()                 { return dao.findAll(); }
     public List<Reservation> getReservationsByCustomer(String n) { return dao.findByCustomer(n); }
