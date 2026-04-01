@@ -1,4 +1,7 @@
-package Hangar.DAO;
+package DAO;
+
+import Model.Aircraft;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;

@@ -1,4 +1,5 @@
-package Hangar.DAO;
+package Model;
+
 public class Aircraft {
     private final int id;
     private final String name;

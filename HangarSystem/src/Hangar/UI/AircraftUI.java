@@ -1,34 +1,50 @@
-package Hangar.UI;
+package UI;
 
-import java.util.Scanner;
-import java.util.Random;
+import DAO.AircraftDAO;
+import Model.Aircraft;
+import Service.AircraftService;
+
 import java.util.List;
+import java.util.Random;
+import java.util.Scanner;
 
 public class AircraftUI {
-    private static final AircraftDAO repo = new AircraftDAO();
     private static final Random random = new Random();
+    private final Scanner scanner;
+    private final String loggedInUser;
+    private final String userRole;
+    private final AircraftDAO repo;
 
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
+    public AircraftUI(Scanner scanner, String loggedInUser, String userRole) {
+        this.scanner = scanner;
+        this.loggedInUser = loggedInUser;
+        this.userRole = userRole;
+        this.repo = new AircraftDAO();
+    }
+
+    public void run() {
         int choice = -1;
 
         while (choice != 0) {
-            printMenu("gian", "FRONT DESK");
+            printMenu();
             choice = AircraftService.getValidInt(scanner, "Enter choice: ");
 
             switch (choice) {
-                case 1 -> addNewAircraft(scanner);
-                case 2 -> searchAircraft(scanner);
-                case 3 -> updateAircraft(scanner);
-                case 4 -> deleteAircraft(scanner);
-                case 5 -> viewAllRecords(scanner);
-                case 0 -> { System.out.println("\nLogging out..."); repo.close(); }
+                case 1 -> addNewAircraft();
+                case 2 -> searchAircraft();
+                case 3 -> updateAircraft();
+                case 4 -> deleteAircraft();
+                case 5 -> viewAllRecords();
+                case 0 -> {
+                    System.out.println("\nLogging out...");
+                    repo.close();
+                }
                 default -> System.out.println("\n[!] Invalid choice.");
             }
         }
     }
 
-    private static void viewAllRecords(Scanner scanner) {
+    private void viewAllRecords() {
         List<Aircraft> list = repo.getAllAircrafts();
         System.out.println("\n\n\n==================== ALL AIRCRAFT RECORDS ====================");
         System.out.printf("%-10s | %-20s | %-15s | %-25s%n", "ID", "NAME", "PHONE", "EMAIL");
@@ -52,7 +68,7 @@ public class AircraftUI {
         }
     }
 
-    private static void addNewAircraft(Scanner scanner) {
+    private void addNewAircraft() {
         System.out.println("\n--- NEW REGISTRATION ---");
         String name = AircraftService.getValidUniqueName(scanner, repo, "Enter Name: ");
         String phone = AircraftService.getValidUniquePhone(scanner, repo, "Enter Phone: ");
@@ -63,7 +79,7 @@ public class AircraftUI {
                 .setName(name).setPhone(phone).setEmail(email).build());
     }
 
-    private static void searchAircraft(Scanner scanner) {
+    private void searchAircraft() {
         boolean stay = true;
         while (stay) {
             int id = AircraftService.getValidInt(scanner, "Enter ID to search: ");
@@ -74,25 +90,25 @@ public class AircraftUI {
         }
     }
 
-    private static void updateAircraft(Scanner scanner) {
+    private void updateAircraft() {
         int id = AircraftService.getValidInt(scanner, "Enter OLD ID to replace: ");
         if (repo.deleteOldRecord(id)) {
             System.out.println("[SYSTEM] ID found. Enter new details:");
-            addNewAircraft(scanner);
+            addNewAircraft();
         } else System.out.println("[!] ID not found.");
     }
 
-    private static void deleteAircraft(Scanner scanner) {
+    private void deleteAircraft() {
         int id = AircraftService.getValidInt(scanner, "Enter ID to delete: ");
         if (repo.deleteOldRecord(id)) System.out.println("[SUCCESS] Deleted.");
         else System.out.println("[!] ID not found.");
     }
 
-    public static void printMenu(String user, String role) {
+    private void printMenu() {
         System.out.println("\n===============================================================");
         System.out.println("      AVIATION HANGAR RESERVATION AND FRONT DESK SYSTEM");
         System.out.println("===============================================================");
-        System.out.printf("   Logged in as: %-20s Role: %s %n", user, role);
+        System.out.printf("   Logged in as: %-20s Role: %s %n", loggedInUser, userRole);
         System.out.println("===============================================================");
         System.out.println("[1] Add New Aircraft");
         System.out.println("[2] Search Aircraft (by ID)");
