@@ -1,5 +1,3 @@
-package Hangar;
-
 import UI.ReservationUI;
 import java.util.Scanner;
 

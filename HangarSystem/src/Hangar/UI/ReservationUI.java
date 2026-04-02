@@ -2,6 +2,7 @@ package UI;
 
 import Model.Reservation;
 import Service.ReservationService;
+import Service.ReservationService.RefundResult;
 import Util.ReservationUtil;
 import Util.ReservationUtil.MenuAction;
 import Util.ReservationUtil.ServiceResult;
@@ -48,16 +49,20 @@ public class ReservationUI {
                 case VIEW_BY_AIRCRAFT:
                     System.out.println("\n  [View by Aircraft — not yet implemented]\n");
                     break;
+                case APPLY_CANCELLATION_REFUND:
+                    runApplyCancellationRefund();
+                    break;
                 case LOGOUT:
                     System.out.println("\n  Logging out...\n");
                     running = false;
                     break;
                 case INVALID:
-                    System.out.println("\n  [!] Invalid choice. Please enter 0-5.\n");
+                    System.out.println("\n  [!] Invalid choice. Please enter 0-6.\n");
                     break;
             }
         }
     }
+
 
     private void runNewReservation() {
         printHeader();
@@ -89,22 +94,60 @@ public class ReservationUI {
         LocalDate endDate = promptEndDate(startDate);
         if (endDate == null) { printCancelled(); return; }
 
-        printConfirmation(customerName, tailNumber, wingspan, length, hangarSlot, startDate, endDate);
-        System.out.print("  Confirm? [Y/N]: ");
-        String confirm = scanner.nextLine().trim();
+        Double deposit = promptPositiveDouble("  Enter deposit amount (PHP)  : ");
+        if (deposit == null) { printCancelled(); return; }
 
-        if (!ReservationUtil.isConfirmed(confirm)) {
+        printConfirmation(customerName, tailNumber, wingspan, length, hangarSlot, startDate, endDate, deposit);
+        System.out.print("  Confirm? [Y/N]: ");
+        if (!ReservationUtil.isConfirmed(scanner.nextLine().trim())) {
             printCancelled();
             return;
         }
 
         ServiceResult result = service.createReservation(
                 customerName, tailNumber, hangarSlot,
-                wingspan, length, startDate, endDate);
+                wingspan, length, startDate, endDate, deposit);
 
-        printResult(result);
+        printServiceResult(result);
         promptEnterToContinue();
     }
+
+    private void runApplyCancellationRefund() {
+        printHeader();
+        System.out.println("  APPLY CANCELLATION REFUND");
+        System.out.println();
+
+        Integer reservationId = promptPositiveInt("  Enter Reservation ID (or 0 to cancel): ");
+        if (reservationId == null) { printCancelled(); return; }
+
+        Reservation reservation = service.getReservationById(reservationId);
+        if (reservation == null) {
+            System.out.println();
+            System.out.println(ReservationUtil.DIVIDER);
+            System.out.println("  [!] Reservation ID " + reservationId + " not found.");
+            System.out.println(ReservationUtil.DIVIDER);
+            promptEnterToContinue();
+            return;
+        }
+
+        System.out.println();
+        System.out.println(ReservationUtil.DIVIDER);
+        System.out.println("  RESERVATION TO CANCEL");
+        System.out.println(ReservationUtil.DIVIDER);
+        System.out.println(reservation);
+        System.out.println(ReservationUtil.DIVIDER);
+        System.out.print("  Confirm cancellation and apply refund? [Y/N]: ");
+        if (!ReservationUtil.isConfirmed(scanner.nextLine().trim())) {
+            printCancelled();
+            return;
+        }
+
+        RefundResult result = service.applyRefund(reservationId);
+
+        printRefundResult(result);
+        promptEnterToContinue();
+    }
+
 
     private void printMenu() {
         System.out.println(ReservationUtil.DIVIDER);
@@ -120,6 +163,7 @@ public class ReservationUI {
         System.out.println("[3] Cancel Reservation");
         System.out.println("[4] View Reservations by Customer");
         System.out.println("[5] View Reservations by Aircraft");
+        System.out.println("[6] Apply Cancellation Refund");
         System.out.println();
         System.out.println("[0] Logout");
         System.out.println();
@@ -152,7 +196,7 @@ public class ReservationUI {
 
     private void printConfirmation(String customerName, String tailNumber,
                                    double wingspan, double length, String hangarSlot,
-                                   LocalDate startDate, LocalDate endDate) {
+                                   LocalDate startDate, LocalDate endDate, double deposit) {
         System.out.println();
         System.out.println(ReservationUtil.DIVIDER);
         System.out.println("  CONFIRM RESERVATION DETAILS");
@@ -163,10 +207,11 @@ public class ReservationUI {
         System.out.printf("  Hangar Slot      : %s%n",              hangarSlot);
         System.out.printf("  Start Date       : %s%n",              startDate.format(Reservation.DATE_FORMAT));
         System.out.printf("  End Date         : %s%n",              endDate.format(Reservation.DATE_FORMAT));
+        System.out.printf("  Deposit Amount   : PHP %.2f%n",        deposit);
         System.out.println(ReservationUtil.DIVIDER);
     }
 
-    private void printResult(ServiceResult result) {
+    private void printServiceResult(ServiceResult result) {
         System.out.println();
         System.out.println(ReservationUtil.DIVIDER);
         if (result.isSuccess()) {
@@ -187,11 +232,37 @@ public class ReservationUI {
         System.out.println(ReservationUtil.DIVIDER);
     }
 
+    private void printRefundResult(RefundResult result) {
+        System.out.println();
+        System.out.println(ReservationUtil.DIVIDER);
+        if (result.isSuccess()) {
+            System.out.println("  [SUCCESS] Reservation cancelled and refund applied!");
+            System.out.println(ReservationUtil.DIVIDER);
+            System.out.printf("  Reservation ID   : %d%n",       result.getReservation().getReservationId());
+            System.out.printf("  Customer         : %s%n",       result.getReservation().getCustomerName());
+            System.out.printf("  Cancellation Date: %s%n",       result.getCancelDate().format(Reservation.DATE_FORMAT));
+            System.out.printf("  Start Date       : %s%n",       result.getReservation().getStartDate().format(Reservation.DATE_FORMAT));
+            System.out.printf("  Deposit Paid     : PHP %.2f%n", result.getReservation().getDepositAmount());
+            System.out.printf("  Refund Rate      : %.0f%%%n",   result.getRefundPercentage());
+            System.out.printf("  Refund Amount    : PHP %.2f%n", result.getRefundAmount());
+            System.out.println(ReservationUtil.DIVIDER);
+            System.out.println("  Refund Policy:");
+            System.out.println("    > 30 days before start  → 100% refund");
+            System.out.println("    15-30 days before start →  50% refund");
+            System.out.println("    7-14 days before start  →  25% refund");
+            System.out.println("    < 7 days before start   →   0% refund");
+        } else {
+            System.out.println("  [!] ERROR: " + result.getMessage());
+        }
+        System.out.println(ReservationUtil.DIVIDER);
+    }
+
     private void printCancelled() {
         System.out.println();
-        System.out.println("  Reservation cancelled. Returning to menu...");
+        System.out.println("  Cancelled. Returning to menu...");
         System.out.println();
     }
+
 
     private String promptString(String prompt) {
         while (true) {
@@ -210,7 +281,22 @@ public class ReservationUI {
             if (ReservationUtil.isCancelled(input)) return null;
             Double val = ReservationUtil.validatePositiveDouble(input);
             if (val != null) return val;
-            System.out.println("  [!] Invalid number. Enter a value like 12.5 or 30 (0 to cancel).");
+            System.out.println("  [!] Invalid number. Enter a value like 12.5 or 5000 (0 to cancel).");
+        }
+    }
+
+    private Integer promptPositiveInt(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String input = scanner.nextLine().trim();
+            if (ReservationUtil.isCancelled(input)) return null;
+            try {
+                int val = Integer.parseInt(input);
+                if (val > 0) return val;
+                System.out.println("  [!] ID must be greater than 0.");
+            } catch (NumberFormatException e) {
+                System.out.println("  [!] Invalid ID. Enter a number (0 to cancel).");
+            }
         }
     }
 

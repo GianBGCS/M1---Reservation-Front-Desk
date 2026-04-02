@@ -8,7 +8,6 @@ import java.util.List;
 
 public class ReservationUtil {
 
-
     public static final String DIVIDER = "================================================================";
     public static final String CANCEL  = "0";
 
@@ -30,7 +29,6 @@ public class ReservationUtil {
         return input;
     }
 
-
     public static Double validatePositiveDouble(String input) {
         try {
             double val = Double.parseDouble(input);
@@ -40,6 +38,7 @@ public class ReservationUtil {
         }
     }
 
+
     public static LocalDate validateDate(String input) {
         try {
             return LocalDate.parse(input, Reservation.DATE_FORMAT);
@@ -47,6 +46,7 @@ public class ReservationUtil {
             return null;
         }
     }
+
 
     public static boolean validateEndDate(LocalDate startDate, LocalDate endDate) {
         return endDate != null && !endDate.isBefore(startDate);
@@ -64,7 +64,6 @@ public class ReservationUtil {
         return wingspan <= maxWingspan && length <= maxLength;
     }
 
-
     public static boolean isCancelled(String input) {
         return input.equals(CANCEL);
     }
@@ -80,6 +79,7 @@ public class ReservationUtil {
             case "3": return MenuAction.CANCEL_RESERVATION;
             case "4": return MenuAction.VIEW_BY_CUSTOMER;
             case "5": return MenuAction.VIEW_BY_AIRCRAFT;
+            case "6": return MenuAction.APPLY_CANCELLATION_REFUND;
             case "0": return MenuAction.LOGOUT;
             default:  return MenuAction.INVALID;
         }
@@ -91,8 +91,26 @@ public class ReservationUtil {
         CANCEL_RESERVATION,
         VIEW_BY_CUSTOMER,
         VIEW_BY_AIRCRAFT,
+        APPLY_CANCELLATION_REFUND,
         LOGOUT,
         INVALID
+    }
+
+    public static double calculateRefundPercentage(LocalDate cancelDate, LocalDate startDate) {
+        long daysBeforeStart = cancelDate.until(startDate, java.time.temporal.ChronoUnit.DAYS);
+        if (daysBeforeStart > 30)  return 100.0;
+        if (daysBeforeStart >= 15) return 50.0;
+        if (daysBeforeStart >= 7)  return 25.0;
+        return 0.0;
+    }
+
+
+    public static double calculateRefundAmount(double depositAmount, double refundPercentage) {
+        return depositAmount * (refundPercentage / 100.0);
+    }
+
+    public static boolean isAlreadyCancelled(String status) {
+        return "CANCELLED".equalsIgnoreCase(status);
     }
 
     public static String[] findSlot(String slotCode) {
@@ -102,10 +120,6 @@ public class ReservationUtil {
         return null;
     }
 
-    /**
-     * Returns a formatted size error message when aircraft does not fit.
-     * Used by Service to build failure messages.
-     */
     public static String buildSizeMismatchMessage(String slotCode, double wingspan, double length) {
         String[] slot = findSlot(slotCode);
         if (slot == null) return "Hangar slot '" + slotCode + "' does not exist.";
@@ -119,22 +133,15 @@ public class ReservationUtil {
         );
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // ServiceResult — wraps success / failure passed from Service to UI
-    // ════════════════════════════════════════════════════════════════════════
-
     public static class ServiceResult {
 
-        // ── Constants ─────────────────────────────────────────────────────────
         private static final String MSG_SUCCESS = "Success";
 
-        // ── Fields ────────────────────────────────────────────────────────────
         private final boolean      success;
         private final String       message;
         private final Reservation  data;
         private final List<String> alternatives;
 
-        // ── Private constructor ───────────────────────────────────────────────
         private ServiceResult(boolean success, String message,
                               Reservation data, List<String> alternatives) {
             this.success      = success;

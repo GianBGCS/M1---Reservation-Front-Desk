@@ -19,16 +19,20 @@ public class ReservationDAO {
                     "    hangar_slot          TEXT    NOT NULL, " +
                     "    start_date           TEXT    NOT NULL, " +
                     "    end_date             TEXT    NOT NULL, " +
+                    "    deposit_amount       REAL    NOT NULL DEFAULT 0.0, " +
                     "    status               TEXT    NOT NULL DEFAULT 'ACTIVE'" +
                     ");";
 
     private static final String SQL_INSERT =
             "INSERT INTO reservations " +
-                    "(customer_name, aircraft_tail_number, hangar_slot, start_date, end_date, status) " +
-                    "VALUES (?, ?, ?, ?, ?, ?)";
+                    "(customer_name, aircraft_tail_number, hangar_slot, start_date, end_date, deposit_amount, status) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
     private static final String SQL_FIND_ALL =
             "SELECT * FROM reservations ORDER BY id";
+
+    private static final String SQL_FIND_BY_ID =
+            "SELECT * FROM reservations WHERE id = ?";
 
     private static final String SQL_FIND_BY_CUSTOMER =
             "SELECT * FROM reservations WHERE LOWER(customer_name) = LOWER(?)";
@@ -57,6 +61,7 @@ public class ReservationDAO {
         return DriverManager.getConnection(DB_URL);
     }
 
+
     public Reservation insert(Reservation reservation) {
         try (Connection conn      = getConnection();
              PreparedStatement ps = conn.prepareStatement(SQL_INSERT, Statement.RETURN_GENERATED_KEYS)) {
@@ -66,7 +71,8 @@ public class ReservationDAO {
             ps.setString(3, reservation.getHangarSlot());
             ps.setString(4, reservation.getStartDate().format(Reservation.DATE_FORMAT));
             ps.setString(5, reservation.getEndDate().format(Reservation.DATE_FORMAT));
-            ps.setString(6, reservation.getStatus());
+            ps.setDouble(6, reservation.getDepositAmount());
+            ps.setString(7, reservation.getStatus());
             ps.executeUpdate();
 
             try (ResultSet keys = ps.getGeneratedKeys()) {
@@ -95,6 +101,24 @@ public class ReservationDAO {
         }
         return list;
     }
+
+
+    public Reservation findById(int id) {
+        try (Connection conn      = getConnection();
+             PreparedStatement ps = conn.prepareStatement(SQL_FIND_BY_ID)) {
+
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return mapRow(rs);
+            }
+
+        } catch (SQLException e) {
+            System.err.println("  [DB ERROR] findById: " + e.getMessage());
+        }
+        return null;
+    }
+
+
     public List<Reservation> findByCustomer(String customerName) {
         List<Reservation> list = new ArrayList<>();
         try (Connection conn      = getConnection();
@@ -110,6 +134,7 @@ public class ReservationDAO {
         }
         return list;
     }
+
     public List<Reservation> findByAircraft(String tailNumber) {
         List<Reservation> list = new ArrayList<>();
         try (Connection conn      = getConnection();
@@ -125,6 +150,7 @@ public class ReservationDAO {
         }
         return list;
     }
+
     public boolean hasOverlap(String hangarSlot, LocalDate start, LocalDate end, int excludeId) {
         try (Connection conn      = getConnection();
              PreparedStatement ps = conn.prepareStatement(SQL_HAS_OVERLAP)) {
@@ -143,6 +169,7 @@ public class ReservationDAO {
         }
         return false;
     }
+
     public boolean updateStatus(int id, String newStatus) {
         try (Connection conn      = getConnection();
              PreparedStatement ps = conn.prepareStatement(SQL_UPDATE_STATUS)) {
@@ -156,6 +183,7 @@ public class ReservationDAO {
         }
         return false;
     }
+
     private Reservation mapRow(ResultSet rs) throws SQLException {
         return new Reservation.Builder()
                 .reservationId(rs.getInt("id"))
@@ -164,6 +192,7 @@ public class ReservationDAO {
                 .hangarSlot(rs.getString("hangar_slot"))
                 .startDate(LocalDate.parse(rs.getString("start_date"), Reservation.DATE_FORMAT))
                 .endDate(LocalDate.parse(rs.getString("end_date"),     Reservation.DATE_FORMAT))
+                .depositAmount(rs.getDouble("deposit_amount"))
                 .status(rs.getString("status"))
                 .build();
     }
