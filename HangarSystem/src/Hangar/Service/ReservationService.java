@@ -26,7 +26,8 @@ public class ReservationService {
             double    wingspan,
             double    length,
             LocalDate startDate,
-            LocalDate endDate) {
+            LocalDate endDate,
+            double    depositAmount) {
 
         if (!ReservationUtil.isValidSlot(hangarSlot)) {
             return ServiceResult.failure("Hangar slot '" + hangarSlot + "' does not exist.");
@@ -52,6 +53,7 @@ public class ReservationService {
                 .hangarSlot(hangarSlot)
                 .startDate(startDate)
                 .endDate(endDate)
+                .depositAmount(depositAmount)
                 .build();
 
         Reservation saved = dao.insert(reservation);
@@ -61,6 +63,8 @@ public class ReservationService {
 
         return ServiceResult.success(saved);
     }
+
+
 
     public boolean isSlotAvailable(String hangarSlot, LocalDate start, LocalDate end) {
         return !dao.hasOverlap(hangarSlot, start, end, NO_EXCLUDE_ID);
@@ -137,9 +141,73 @@ public class ReservationService {
     }
 
 
+    public RefundResult applyRefund(int reservationId) {
+        // Condition 1 — reservation exists
+        Reservation reservation = dao.findById(reservationId);
+        if (reservation == null) {
+            return RefundResult.failure("Reservation ID " + reservationId + " not found.");
+        }
+
+        if (ReservationUtil.isAlreadyCancelled(reservation.getStatus())) {
+            return RefundResult.failure(
+                    "Reservation #" + reservationId + " is already cancelled."
+            );
+        }
+
+        LocalDate today             = LocalDate.now();
+        double refundPercentage     = ReservationUtil.calculateRefundPercentage(today, reservation.getStartDate());
+        double refundAmount         = ReservationUtil.calculateRefundAmount(reservation.getDepositAmount(), refundPercentage);
+
+        boolean updated = dao.updateStatus(reservationId, Reservation.STATUS_CANCELLED);
+        if (!updated) {
+            return RefundResult.failure("Database error: could not cancel reservation.");
+        }
+
+        return RefundResult.success(reservation, today, refundPercentage, refundAmount);
+    }
+
     public List<Reservation> getAllReservations()                 { return dao.findAll(); }
     public List<Reservation> getReservationsByCustomer(String n) { return dao.findByCustomer(n); }
     public List<Reservation> getReservationsByAircraft(String t) { return dao.findByAircraft(t); }
+    public Reservation       getReservationById(int id)          { return dao.findById(id); }
     public boolean           updateStatus(int id, String status) { return dao.updateStatus(id, status); }
     public Reservation findById(int id) { return dao.findById(id); }
+
+
+    public static class RefundResult {
+
+        private final boolean     success;
+        private final String      message;
+        private final Reservation reservation;
+        private final LocalDate   cancelDate;
+        private final double      refundPercentage;
+        private final double      refundAmount;
+
+        private RefundResult(boolean success, String message, Reservation reservation,
+                             LocalDate cancelDate, double refundPercentage, double refundAmount) {
+            this.success          = success;
+            this.message          = message;
+            this.reservation      = reservation;
+            this.cancelDate       = cancelDate;
+            this.refundPercentage = refundPercentage;
+            this.refundAmount     = refundAmount;
+        }
+
+        public static RefundResult success(Reservation reservation, LocalDate cancelDate,
+                                           double refundPercentage, double refundAmount) {
+            return new RefundResult(true, "Success", reservation,
+                    cancelDate, refundPercentage, refundAmount);
+        }
+
+        public static RefundResult failure(String message) {
+            return new RefundResult(false, message, null, null, 0, 0);
+        }
+
+        public boolean     isSuccess()          { return success; }
+        public String      getMessage()         { return message; }
+        public Reservation getReservation()     { return reservation; }
+        public LocalDate   getCancelDate()      { return cancelDate; }
+        public double      getRefundPercentage(){ return refundPercentage; }
+        public double      getRefundAmount()    { return refundAmount; }
+    }
 }

@@ -1,115 +1,103 @@
 package DAO;
 
 import Model.Reservation;
-
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ReservationDAO {
-
     private static final String DB_URL = "jdbc:sqlite:aviation_hangar.db";
 
-    private static final String SQL_CREATE_TABLE =
-            "CREATE TABLE IF NOT EXISTS reservations (" +
-                    "    id                   INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    "    customer_name        TEXT    NOT NULL, " +
-                    "    aircraft_tail_number TEXT    NOT NULL, " +
-                    "    hangar_slot          TEXT    NOT NULL, " +
-                    "    start_date           TEXT    NOT NULL, " +
-                    "    end_date             TEXT    NOT NULL, " +
-                    "    status               TEXT    NOT NULL DEFAULT 'ACTIVE'" +
-                    ");";
-
-    private static final String SQL_INSERT =
-            "INSERT INTO reservations " +
-                    "(customer_name, aircraft_tail_number, hangar_slot, start_date, end_date, status) " +
-                    "VALUES (?, ?, ?, ?, ?, ?)";
-
-    private static final String SQL_FIND_ALL =
-            "SELECT * FROM reservations ORDER BY id";
-
-    private static final String SQL_FIND_BY_CUSTOMER =
-            "SELECT * FROM reservations WHERE LOWER(customer_name) = LOWER(?)";
-
-    private static final String SQL_FIND_BY_AIRCRAFT =
-            "SELECT * FROM reservations WHERE LOWER(aircraft_tail_number) = LOWER(?)";
-
-    private static final String SQL_HAS_OVERLAP =
-            "SELECT COUNT(*) FROM reservations " +
-                    "WHERE hangar_slot = ? AND status = 'ACTIVE' AND id != ? " +
-                    "AND start_date <= ? AND end_date >= ?";
-
-    private static final String SQL_UPDATE_STATUS =
-            "UPDATE reservations SET status = ? WHERE id = ?";
-
     public ReservationDAO() {
-        try (Connection conn = getConnection();
-             Statement stmt  = conn.createStatement()) {
-            stmt.execute(SQL_CREATE_TABLE);
-        } catch (SQLException e) {
-            System.err.println("  [DB ERROR] Setup failed: " + e.getMessage());
-        }
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("CREATE TABLE IF NOT EXISTS reservations (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "customer_name TEXT NOT NULL, " +
+                    "aircraft_tail_number TEXT NOT NULL, " +
+                    "hangar_slot TEXT NOT NULL, " +
+                    "start_date TEXT NOT NULL, " +
+                    "end_date TEXT NOT NULL, " +
+                    "status TEXT NOT NULL DEFAULT 'ACTIVE');");
+        } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    private Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(DB_URL);
-    }
-
-    public Reservation insert(Reservation reservation) {
-        try (Connection conn      = getConnection();
-             PreparedStatement ps = conn.prepareStatement(SQL_INSERT, Statement.RETURN_GENERATED_KEYS)) {
-
-            ps.setString(1, reservation.getCustomerName());
-            ps.setString(2, reservation.getAircraftTailNumber());
-            ps.setString(3, reservation.getHangarSlot());
-            ps.setString(4, reservation.getStartDate().format(Reservation.DATE_FORMAT));
-            ps.setString(5, reservation.getEndDate().format(Reservation.DATE_FORMAT));
-            ps.setString(6, reservation.getStatus());
-            ps.executeUpdate();
-
-            try (ResultSet keys = ps.getGeneratedKeys()) {
-                if (keys.next()) {
-                    reservation.setReservationId(keys.getInt(1));
-                    return reservation;
-                }
+    public Reservation findByTailNumber(String tailNumber) {
+        String sql = "SELECT * FROM reservations WHERE aircraft_tail_number = ? AND status = 'ACTIVE'";
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, tailNumber);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return new Reservation.Builder()
+                        .reservationId(rs.getInt("id"))
+                        .customerName(rs.getString("customer_name"))
+                        .aircraftTailNumber(rs.getString("aircraft_tail_number"))
+                        .hangarSlot(rs.getString("hangar_slot"))
+                        .startDate(LocalDate.parse(rs.getString("start_date"), Reservation.DATE_FORMAT))
+                        .endDate(LocalDate.parse(rs.getString("end_date"), Reservation.DATE_FORMAT))
+                        .status(rs.getString("status")).build();
             }
-
-        } catch (SQLException e) {
-            System.err.println("  [DB ERROR] insert: " + e.getMessage());
-        }
+        } catch (SQLException e) { e.printStackTrace(); }
         return null;
+    }
+
+    public boolean delete(int id) {
+        String sql = "DELETE FROM reservations WHERE id = ?";
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { return false; }
+    }
+
+    public boolean hasOverlap(String slot, LocalDate start, LocalDate end) {
+        String sql = "SELECT COUNT(*) FROM reservations WHERE hangar_slot = ? AND status = 'ACTIVE' " +
+                "AND NOT (end_date < ? OR start_date > ?)";
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, slot);
+            ps.setString(2, start.format(Reservation.DATE_FORMAT));
+            ps.setString(3, end.format(Reservation.DATE_FORMAT));
+            ResultSet rs = ps.executeQuery();
+            return rs.next() && rs.getInt(1) > 0;
+        } catch (SQLException e) { return false; }
+    }
+
+    public boolean save(Reservation r) {
+        String sql = "INSERT INTO reservations (customer_name, aircraft_tail_number, hangar_slot, start_date, end_date, status) VALUES (?,?,?,?,?,?)";
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, r.getCustomerName());
+            ps.setString(2, r.getAircraftTailNumber());
+            ps.setString(3, r.getHangarSlot());
+            ps.setString(4, r.getStartDate().format(Reservation.DATE_FORMAT));
+            ps.setString(5, r.getEndDate().format(Reservation.DATE_FORMAT));
+            ps.setString(6, r.getStatus());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) { return false; }
     }
 
     public List<Reservation> findAll() {
         List<Reservation> list = new ArrayList<>();
-        try (Connection conn = getConnection();
-             Statement stmt  = conn.createStatement();
-             ResultSet rs    = stmt.executeQuery(SQL_FIND_ALL)) {
-
-            while (rs.next()) list.add(mapRow(rs));
-
-        } catch (SQLException e) {
-            System.err.println("  [DB ERROR] findAll: " + e.getMessage());
-        }
-        return list;
-    }
-    public List<Reservation> findByCustomer(String customerName) {
-        List<Reservation> list = new ArrayList<>();
-        try (Connection conn      = getConnection();
-             PreparedStatement ps = conn.prepareStatement(SQL_FIND_BY_CUSTOMER)) {
-
-            ps.setString(1, customerName);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) list.add(mapRow(rs));
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery("SELECT * FROM reservations")) {
+            while (rs.next()) {
+                list.add(new Reservation.Builder()
+                        .reservationId(rs.getInt("id"))
+                        .customerName(rs.getString("customer_name"))
+                        .aircraftTailNumber(rs.getString("aircraft_tail_number"))
+                        .hangarSlot(rs.getString("hangar_slot"))
+                        .startDate(LocalDate.parse(rs.getString("start_date"), Reservation.DATE_FORMAT))
+                        .endDate(LocalDate.parse(rs.getString("end_date"), Reservation.DATE_FORMAT))
+                        .status(rs.getString("status")).build());
             }
-
-        } catch (SQLException e) {
-            System.err.println("  [DB ERROR] findByCustomer: " + e.getMessage());
-        }
+        } catch (SQLException e) { e.printStackTrace(); }
         return list;
     }
+<<<<<<< HEAD
     public List<Reservation> findByAircraft(String tailNumber) {
         List<Reservation> list = new ArrayList<>();
         try (Connection conn      = getConnection();
@@ -203,4 +191,6 @@ public class ReservationDAO {
         }
         return false;
     }
+=======
+>>>>>>> origin/feature/Create-Aircraft-Reservation
 }
