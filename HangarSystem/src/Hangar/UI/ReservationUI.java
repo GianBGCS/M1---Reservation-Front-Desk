@@ -64,6 +64,7 @@ public class ReservationUI {
         }
     }
 
+    // ── Menu Actions ───────────────────────────────────────────────────────────
 
     private void runNewReservation() {
         printHeader();
@@ -171,22 +172,13 @@ public class ReservationUI {
         if (newTail == null) { printCancelled(); return; }
         newTail = newTail.toUpperCase();
 
-        double wingspan, length;
-        Aircraft registered = aircraftService.findByTailNumber(newTail);
-        if (registered != null) {
-            wingspan = registered.getWingspan();
-            length   = registered.getLength();
-            System.out.printf("  Aircraft found: Wingspan %.1f m | Length %.1f m%n",
-                    wingspan, length);
-        } else {
-            System.out.println("  Aircraft not in registry. Enter dimensions for slot validation:");
-            Double ws = promptPositiveDouble("  Wingspan (meters): ");
-            if (ws == null) { printCancelled(); return; }
-            Double ln = promptPositiveDouble("  Length   (meters): ");
-            if (ln == null) { printCancelled(); return; }
-            wingspan = ws;
-            length   = ln;
-        }
+        System.out.println("  Enter aircraft dimensions for slot validation:");
+        Double ws = promptPositiveDouble("  Wingspan (meters): ");
+        if (ws == null) { printCancelled(); return; }
+        Double ln = promptPositiveDouble("  Length   (meters): ");
+        if (ln == null) { printCancelled(); return; }
+        double wingspan = ws;
+        double length   = ln;
 
         printSlotTable();
         String newSlot = promptHangarSlotOrKeep(current.getHangarSlot());
@@ -267,7 +259,6 @@ public class ReservationUI {
         promptEnterToContinue();
     }
 
-
     private void runApplyCancellationRefund() {
         printHeader();
         System.out.println("  APPLY CANCELLATION REFUND");
@@ -299,7 +290,6 @@ public class ReservationUI {
         }
 
         RefundResult result = service.applyRefund(reservationId);
-
         printRefundResult(result);
         promptEnterToContinue();
     }
@@ -417,6 +407,7 @@ public class ReservationUI {
         System.out.println();
     }
 
+    // ── Input Helpers ──────────────────────────────────────────────────────────
 
     private String promptString(String prompt) {
         while (true) {
@@ -464,6 +455,17 @@ public class ReservationUI {
         }
     }
 
+    private String promptHangarSlotOrKeep(String current) {
+        while (true) {
+            System.out.print("  Hangar slot [" + current + "] (Enter to keep, 0 to cancel): ");
+            String input = scanner.nextLine().trim().toUpperCase();
+            if (input.equals("0"))  return null;
+            if (input.isEmpty())    return current;
+            if (ReservationUtil.isValidSlot(input)) return input;
+            System.out.println("  [!] Invalid slot. Choose from the table above.");
+        }
+    }
+
     private LocalDate promptDate(String prompt) {
         while (true) {
             System.out.print(prompt);
@@ -472,46 +474,6 @@ public class ReservationUI {
             LocalDate date = ReservationUtil.validateDate(input);
             if (date != null) return date;
             System.out.println("  [!] Invalid format. Use yyyy-MM-dd (e.g. 2025-06-15).");
-        }
-    }
-
-    private LocalDate promptEndDate(LocalDate startDate) {
-        while (true) {
-            LocalDate end = promptDate("  Enter end date   (yyyy-MM-dd): ");
-            if (end == null) return null;
-            if (ReservationUtil.validateEndDate(startDate, end)) return end;
-            System.out.println("  [!] End date must be on or after start date ("
-                    + startDate.format(Reservation.DATE_FORMAT) + ").");
-        }
-    }
-
-    private void promptEnterToContinue() {
-        System.out.print("  Press Enter to return to menu...");
-        scanner.nextLine();
-        System.out.println();
-    }
-
-    private Integer promptPositiveInt(String prompt) {
-        while (true) {
-            System.out.print(prompt);
-            String input = scanner.nextLine().trim();
-            if (input.equals("0")) return null;
-            try {
-                int val = Integer.parseInt(input);
-                if (val > 0) return val;
-            } catch (NumberFormatException ignored) {}
-            System.out.println("  [!] Invalid ID. Enter a positive number (0 to cancel).");
-        }
-    }
-
-    private String promptHangarSlotOrKeep(String current) {
-        while (true) {
-            System.out.print("  Hangar slot [" + current + "] (Enter to keep, 0 to cancel): ");
-            String input = scanner.nextLine().trim().toUpperCase();
-            if (input.equals("0")) return null;
-            if (input.isEmpty())   return current;
-            if (ReservationUtil.isValidSlot(input)) return input;
-            System.out.println("  [!] Invalid slot. Choose from the table above.");
         }
     }
 
@@ -525,6 +487,16 @@ public class ReservationUI {
         System.out.println("  [!] Invalid format. Keeping current: "
                 + current.format(Reservation.DATE_FORMAT));
         return current;
+    }
+
+    private LocalDate promptEndDate(LocalDate startDate) {
+        while (true) {
+            LocalDate end = promptDate("  Enter end date   (yyyy-MM-dd): ");
+            if (end == null) return null;
+            if (ReservationUtil.validateEndDate(startDate, end)) return end;
+            System.out.println("  [!] End date must be on or after start date ("
+                    + startDate.format(Reservation.DATE_FORMAT) + ").");
+        }
     }
 
     private LocalDate promptEndDateOrKeep(String prompt, LocalDate current, LocalDate start) {
@@ -541,8 +513,12 @@ public class ReservationUI {
         String input = scanner.nextLine().trim();
         if (input.equals("0")) return null;
         if (input.isEmpty())   return current;
-        return input.isBlank() ? current : input;
+        return input;
     }
 
-
+    private void promptEnterToContinue() {
+        System.out.print("  Press Enter to return to menu...");
+        scanner.nextLine();
+        System.out.println();
+    }
 }
