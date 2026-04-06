@@ -1,5 +1,6 @@
 package UI;
 
+import Model.HangarSlot;
 import Model.Reservation;
 import Service.ReservationService;
 import Util.ReservationUtil;
@@ -48,8 +49,7 @@ public class ReservationUI {
         }
     }
 
-    // ── Menu Actions ───────────────────────────────────────────────────────────
-
+    // ── Menu Actions (unchanged except printSlotTable) ────────────────────────
     private void runNewReservation() {
         printHeader();
         System.out.println("  NEW RESERVATION\n");
@@ -68,7 +68,7 @@ public class ReservationUI {
         Double length = promptPositiveDouble("  Aircraft length   (meters) : ");
         if (length == null) { printCancelled(); return; }
 
-        printSlotTable();
+        printSlotTable();  // ← updated method
         String hangarSlot = promptHangarSlot();
         if (hangarSlot == null) { printCancelled(); return; }
 
@@ -150,7 +150,7 @@ public class ReservationUI {
         Double ln = promptPositiveDouble("  Length   (meters): ");
         if (ln == null) { printCancelled(); return; }
 
-        printSlotTable();
+        printSlotTable();  // ← updated method
         String newSlot = promptHangarSlotOrKeep(current.getHangarSlot());
         if (newSlot == null) { printCancelled(); return; }
 
@@ -222,8 +222,7 @@ public class ReservationUI {
         promptEnterToContinue();
     }
 
-    // ── Display helpers ────────────────────────────────────────────────────────
-
+    // ─── Display helpers ─────────────────────────────────────────────────────
     private void printMenu() {
         System.out.println(ReservationUtil.DIVIDER);
         System.out.println("      AVIATION HANGAR RESERVATION AND FRONT DESK SYSTEM");
@@ -249,13 +248,15 @@ public class ReservationUI {
         System.out.println();
     }
 
+    // UPDATED: now reads from database
     private void printSlotTable() {
         System.out.println("\n" + ReservationUtil.DIVIDER);
         System.out.println("  HANGAR SLOTS — SIZE LIMITS");
         System.out.println(ReservationUtil.DIVIDER);
-        for (String[] slot : ReservationUtil.HANGAR_SLOTS) {
-            System.out.printf("  Slot %-3s | Category: %-7s | Max Wingspan: %5s m | Max Length: %5s m%n",
-                    slot[0], slot[3], slot[1], slot[2]);
+        for (HangarSlot slot : ReservationUtil.getAllSlots()) {
+            System.out.printf("  Slot %-3s | Category: %-7s | Max Wingspan: %5.1f m | Max Length: %5.1f m%n",
+                    slot.getSlotCode(), slot.getCategory(),
+                    slot.getMaxWingspan(), slot.getMaxLength());
         }
         System.out.println(ReservationUtil.DIVIDER);
         System.out.println();
@@ -296,8 +297,7 @@ public class ReservationUI {
         System.out.println("\n  Cancelled. Returning to menu...\n");
     }
 
-    // ── Input helpers ──────────────────────────────────────────────────────────
-
+    // ─── Input helpers (unchanged) ───────────────────────────────────────────
     private String promptString(String prompt) {
         while (true) {
             System.out.print(prompt);

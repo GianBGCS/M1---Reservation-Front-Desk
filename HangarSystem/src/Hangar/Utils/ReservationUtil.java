@@ -1,5 +1,7 @@
 package Util;
 
+import DAO.HangarSlotDAO;
+import Model.HangarSlot;
 import Model.Reservation;
 
 import java.time.LocalDate;
@@ -11,19 +13,41 @@ public class ReservationUtil {
     public static final String DIVIDER = "================================================================";
     public static final String CANCEL  = "0";
 
-    public static final String[][] HANGAR_SLOTS = {
-            { "A1", "20.0", "15.0", "SMALL"  },
-            { "A2", "20.0", "15.0", "SMALL"  },
-            { "A3", "20.0", "15.0", "SMALL"  },
-            { "B1", "36.0", "30.0", "MEDIUM" },
-            { "B2", "36.0", "30.0", "MEDIUM" },
-            { "B3", "36.0", "30.0", "MEDIUM" },
-            { "C1", "65.0", "55.0", "LARGE"  },
-            { "C2", "65.0", "55.0", "LARGE"  }
-    };
+    private static final HangarSlotDAO slotDAO = new HangarSlotDAO();
 
     private ReservationUtil() {}
 
+    // ─── DB-backed slot methods (replaces hardcoded array) ───────────────────
+    public static List<HangarSlot> getAllSlots() {
+        return slotDAO.findAll();
+    }
+
+    public static HangarSlot findSlotByCode(String slotCode) {
+        return slotDAO.findBySlotCode(slotCode);
+    }
+
+    public static boolean isValidSlot(String slotCode) {
+        return findSlotByCode(slotCode) != null;
+    }
+
+    public static boolean doesAircraftFit(String slotCode, double wingspan, double length) {
+        HangarSlot slot = findSlotByCode(slotCode);
+        if (slot == null) return false;
+        return wingspan <= slot.getMaxWingspan() && length <= slot.getMaxLength();
+    }
+
+    public static String buildSizeMismatchMessage(String slotCode, double wingspan, double length) {
+        HangarSlot slot = findSlotByCode(slotCode);
+        if (slot == null) return "Hangar slot '" + slotCode + "' does not exist.";
+        return String.format(
+                "Aircraft does not fit in slot %s.\n" +
+                        "  Slot limit    — Wingspan: %.1f m | Length: %.1f m\n" +
+                        "  Your aircraft — Wingspan: %.1f m | Length: %.1f m",
+                slotCode, slot.getMaxWingspan(), slot.getMaxLength(), wingspan, length
+        );
+    }
+
+    // ─── Input validation helpers (unchanged) ─────────────────────────────────
     public static String validateString(String input) {
         if (input == null || input.isBlank()) return null;
         return input;
@@ -50,16 +74,6 @@ public class ReservationUtil {
         return endDate != null && !endDate.isBefore(startDate);
     }
 
-    public static boolean isValidSlot(String slotCode) {
-        return findSlot(slotCode) != null;
-    }
-
-    public static boolean doesAircraftFit(String slotCode, double wingspan, double length) {
-        String[] slot = findSlot(slotCode);
-        if (slot == null) return false;
-        return wingspan <= Double.parseDouble(slot[1]) && length <= Double.parseDouble(slot[2]);
-    }
-
     public static boolean isCancelled(String input) {
         return CANCEL.equals(input);
     }
@@ -68,26 +82,7 @@ public class ReservationUtil {
         return input.equalsIgnoreCase("Y");
     }
 
-    public static String[] findSlot(String slotCode) {
-        for (String[] slot : HANGAR_SLOTS) {
-            if (slot[0].equalsIgnoreCase(slotCode)) return slot;
-        }
-        return null;
-    }
-
-    public static String buildSizeMismatchMessage(String slotCode, double wingspan, double length) {
-        String[] slot = findSlot(slotCode);
-        if (slot == null) return "Hangar slot '" + slotCode + "' does not exist.";
-        return String.format(
-                "Aircraft does not fit in slot %s.\n" +
-                        "  Slot limit    — Wingspan: %.1f m | Length: %.1f m\n" +
-                        "  Your aircraft — Wingspan: %.1f m | Length: %.1f m",
-                slotCode,
-                Double.parseDouble(slot[1]), Double.parseDouble(slot[2]),
-                wingspan, length
-        );
-    }
-
+    // ─── Menu action resolution (unchanged) ───────────────────────────────────
     public static MenuAction resolveMenuChoice(String choice) {
         switch (choice) {
             case "1": return MenuAction.NEW_RESERVATION;
@@ -110,9 +105,8 @@ public class ReservationUtil {
         INVALID
     }
 
-    // ── ServiceResult ──────────────────────────────────────────────────────────
+    // ─── ServiceResult inner class (unchanged) ────────────────────────────────
     public static class ServiceResult {
-
         private final boolean      success;
         private final String       message;
         private final Reservation  data;

@@ -1,6 +1,8 @@
 package Service;
 
+import DAO.HangarSlotDAO;
 import DAO.ReservationDAO;
+import Model.HangarSlot;
 import Model.Reservation;
 import Util.ReservationUtil;
 import Util.ReservationUtil.ServiceResult;
@@ -109,16 +111,18 @@ public class ReservationService {
         return ServiceResult.success(existing);
     }
 
+    // Updated to use database slots
     public List<String> findSuitableSlots(double wingspan, double length,
                                           LocalDate start, LocalDate end) {
         List<String> suitable = new ArrayList<>();
-        for (String[] slot : ReservationUtil.HANGAR_SLOTS) {
-            boolean fits      = ReservationUtil.doesAircraftFit(slot[0], wingspan, length);
-            boolean available = !dao.hasOverlap(slot[0], start, end, NO_EXCLUDE_ID);
+        for (HangarSlot slot : ReservationUtil.getAllSlots()) {
+            boolean fits = wingspan <= slot.getMaxWingspan() && length <= slot.getMaxLength();
+            boolean available = !dao.hasOverlap(slot.getSlotCode(), start, end, NO_EXCLUDE_ID);
             if (fits && available) {
                 suitable.add(String.format(
-                        "  Slot %-3s | Category: %-7s | Max Wingspan: %s m | Max Length: %s m",
-                        slot[0], slot[3], slot[1], slot[2]
+                        "  Slot %-3s | Category: %-7s | Max Wingspan: %.1f m | Max Length: %.1f m",
+                        slot.getSlotCode(), slot.getCategory(),
+                        slot.getMaxWingspan(), slot.getMaxLength()
                 ));
             }
         }
