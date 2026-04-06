@@ -1,8 +1,8 @@
-package Hangar.Service;
+package Service;
 
-import Hangar.DAO.UserDAO;
-import Hangar.Model.User;
-import Hangar.Utils.PasswordUtils;
+import DAO.UserDAO;
+import Model.User;
+import Util.PasswordUtils;
 
 public class AuthService {
 
@@ -15,18 +15,12 @@ public class AuthService {
 
     public boolean login(String username, String password) {
         User found = userDAO.getUserByUsername(username);
-
-        if (found == null) {
-            return false; // username not found
-        }
+        if (found == null) return false;
 
         String hashedInput = PasswordUtils.hash(password);
+        if (!hashedInput.equals(found.getPasswordHash())) return false;
 
-        if (!hashedInput.equals(found.getPASSWORDHASH())) {
-            return false; // wrong password
-        }
-
-        currentUser = found; // store in session
+        currentUser = found;
         return true;
     }
 
@@ -34,15 +28,7 @@ public class AuthService {
         currentUser = null;
     }
 
-    public User getCurrentUser() {
-        return currentUser;
-    }
-
-    public boolean isAuthenticated() {
-        return currentUser != null;
-    }
-
-    public boolean isAdmin() {
-        return currentUser != null && currentUser.isADMIN();
-    }
+    public User getCurrentUser()    { return currentUser; }
+    public boolean isAuthenticated(){ return currentUser != null; }
+    public boolean isAdmin()        { return currentUser != null && currentUser.isAdmin(); }
 }

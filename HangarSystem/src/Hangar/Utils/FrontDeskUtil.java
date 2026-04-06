@@ -1,11 +1,11 @@
-package HangarSystem.Utils;
+package Util;
 
-import HangarSystem.Model.FrontDesk;
+import Model.FrontDesk;
+import java.util.Scanner;
 
 public class FrontDeskUtil {
 
-    public static final String DIVIDER    = "==================================================";
-    public static final double DAILY_RATE = 3000.00;
+    public static final String DIVIDER = "==================================================";
 
     private FrontDeskUtil() {}
 
@@ -28,11 +28,9 @@ public class FrontDeskUtil {
         return input.trim().matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}");
     }
 
-
     public static boolean isConfirmed(String input) {
         return input != null && input.trim().equalsIgnoreCase("Y");
     }
-
 
     public static void printHeader(String user, String role) {
         System.out.println("\n" + DIVIDER);
@@ -72,19 +70,16 @@ public class FrontDeskUtil {
     }
 
     public static void printWalkInSlotFound(FrontDesk res, int days) {
-        double estCost = DAILY_RATE * days;
         System.out.println();
         System.out.println(DIVIDER);
         System.out.println("WALK-IN — AVAILABLE SLOT FOUND");
         System.out.println(DIVIDER);
-        System.out.printf("  Aircraft Registration num.  : %s%n",       res.getAircraftTailNumber());
-        System.out.printf("  Customer                    : %s%n",       res.getCustomerName());
-        System.out.printf("  Hangar / Slot               : %s%n",       res.getHangarSlot());
-        System.out.printf("  Check-In Time               : %s%n",       res.getCheckInTime());
-        System.out.printf("  Est. Departure              : %s%n",       res.getEstimatedDeparture());
-        System.out.printf("  Days                        : %d days%n",  days);
-        System.out.printf("  Daily Rate                  : PHP %.2f%n", DAILY_RATE);
-        System.out.printf("  Est. Cost                   : PHP %.2f%n", estCost);
+        System.out.printf("  Aircraft Registration : %s%n",      res.getAircraftTailNumber());
+        System.out.printf("  Customer              : %s%n",      res.getCustomerName());
+        System.out.printf("  Hangar / Slot         : %s%n",      res.getHangarSlot());
+        System.out.printf("  Check-In Time         : %s%n",      res.getCheckInTime());
+        System.out.printf("  Est. Departure        : %s%n",      res.getEstimatedDeparture());
+        System.out.printf("  Days                  : %d days%n", days);
         System.out.println(DIVIDER);
     }
 
@@ -109,7 +104,7 @@ public class FrontDeskUtil {
         System.out.println("          Walk-In reservation was NOT created.");
     }
 
-    public static void pause(java.util.Scanner scanner) {
+    public static void pause(Scanner scanner) {
         System.out.println("\nPress ENTER to return to Front Desk Menu...");
         scanner.nextLine();
     }

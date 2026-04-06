@@ -1,12 +1,10 @@
-package Hangar.UI;
+package UI;
 
-import Hangar.Model.User;
-import Hangar.DAO.UserDAO;
-import UI.CustomerUI;
-import UI.ReservationUI;
-import UI.HangarSlotUI;
+import DAO.UserDAO;
+import Model.User;
+import Service.AuthService;
+import Util.PasswordUtils;
 import java.util.Scanner;
-import java.util.List;
 
 public class MainMenu {
 
@@ -18,8 +16,8 @@ public class MainMenu {
     public MainMenu(User currentUser, Scanner scanner) {
         this.currentUser = currentUser;
         this.scanner     = scanner;
-        this.username    = currentUser.getUSERNAME();
-        this.role        = currentUser.isADMIN() ? "ADMIN" : "FRONT DESK";
+        this.username    = currentUser.getUsername();
+        this.role        = currentUser.isAdmin() ? "ADMIN" : "FRONT DESK";
     }
 
     public void display() {
@@ -27,40 +25,38 @@ public class MainMenu {
             printMenu();
             System.out.print("Select option: ");
 
+            String input = scanner.nextLine().trim();
             int choice;
             try {
-                choice = Integer.parseInt(scanner.nextLine().trim());
+                choice = Integer.parseInt(input);
             } catch (NumberFormatException e) {
                 System.out.println("[ERROR] Please enter a valid number.");
                 continue;
             }
 
-            if (currentUser.isADMIN()) {
+            if (currentUser.isAdmin()) {
                 switch (choice) {
-                    case 1 -> new CustomerUI(scanner, username, role).start();
-                    case 2 -> System.out.println("[TODO] Aircraft Management");
-                    case 3 -> new ReservationUI(scanner, username, role).run();
-                    case 4 -> System.out.println("[TODO] Front Desk (Check-In / Check-Out)");
-                    case 5 -> System.out.println("[TODO] Billing and Invoicing");
-                    case 6 -> new HangarSlotUI(scanner, username, role).run();
-                    case 7 -> manageUsers();
+                    case 1 -> new UI.CustomerUI(scanner, username, role).start();
+                    case 2 -> new UI.ReservationUI(scanner, username, role).run();
+                    case 3 -> new UI.FrontDeskUI(scanner, username, role).start();
+                    case 4 -> new UI.HangarSlotUI(scanner, username, role).run();
+                    case 5 -> manageUsers();
                     case 0 -> { System.out.println("Logging out..."); return; }
-                    default -> System.out.println("[ERROR] Invalid option. Please try again.");
+                    default -> System.out.println("[ERROR] Invalid option.");
                 }
             } else {
                 switch (choice) {
-                    case 1 -> new CustomerUI(scanner, username, role).start();
-                    case 2 -> System.out.println("[TODO] Aircraft Management");
-                    case 3 -> new ReservationUI(scanner, username, role).run();
-                    case 4 -> System.out.println("[TODO] Front Desk (Check-In / Check-Out)");
-                    case 5 -> System.out.println("[TODO] Billing and Invoicing");
+                    case 1 -> new UI.CustomerUI(scanner, username, role).start();
+                    case 2 -> new UI.ReservationUI(scanner, username, role).run();
+                    case 3 -> new UI.FrontDeskUI(scanner, username, role).start();
                     case 0 -> { System.out.println("Logging out..."); return; }
-                    default -> System.out.println("[ERROR] Invalid option. Please try again.");
+                    default -> System.out.println("[ERROR] Invalid option.");
                 }
             }
         }
     }
 
+    // ── Menu print ─────────────────────────────────────────────────────────────
     private void printMenu() {
         System.out.println("\n========================================");
         System.out.println("   Aviation Hangar System");
@@ -68,52 +64,145 @@ public class MainMenu {
         System.out.println("   Role : " + role);
         System.out.println("========================================");
         System.out.println("  1. Customer Management");
-        System.out.println("  2. Aircraft Management");
-        System.out.println("  3. Reservation Management");
-        System.out.println("  4. Front Desk (Check-In / Check-Out)");
-        System.out.println("  5. Billing and Invoicing");
-        if (currentUser.isADMIN()) {
+        System.out.println("  2. Reservation Management");
+        System.out.println("  3. Front Desk (Check-In / Check-Out)");
+        if (currentUser.isAdmin()) {
             System.out.println("  ---- Admin Only ----------------");
-            System.out.println("  6. Hangar and Slot Configuration");
-            System.out.println("  7. User Management");
+            System.out.println("  4. Hangar and Slot Configuration");
+            System.out.println("  5. User Management");
         }
         System.out.println("  0. Logout");
         System.out.println("========================================");
     }
 
+    // ── User Management ────────────────────────────────────────────────────────
     private void manageUsers() {
+        while (true) {
+            System.out.println("\n========================================");
+            System.out.println("   User Management");
+            System.out.println("========================================");
+            System.out.println("  1. View All Users");
+            System.out.println("  2. Add User");
+            System.out.println("  3. Delete User");
+            System.out.println("  0. Back");
+            System.out.println("========================================");
+            System.out.print("Select option: ");
+
+            String input = scanner.nextLine().trim();
+            switch (input) {
+                case "1" -> viewAllUsers();
+                case "2" -> addUser();
+                case "3" -> deleteUser();
+                case "0" -> { return; }
+                default  -> System.out.println("[ERROR] Invalid option.");
+            }
+        }
+    }
+
+    private void viewAllUsers() {
         UserDAO userDAO = new UserDAO();
+        var users = userDAO.getAllUser();
+        System.out.println("\n--- All Users ---");
+        if (users.isEmpty()) {
+            System.out.println("  No users found.");
+        } else {
+            System.out.printf("  %-20s %s%n", "Username", "Role");
+            System.out.println("  " + "-".repeat(35));
+            for (User u : users) {
+                System.out.printf("  %-20s %s%n",
+                        u.getUsername(),
+                        u.isAdmin() ? "ADMIN" : "FRONT DESK");
+            }
+        }
+        pause();
+    }
 
-        System.out.println("\n---- User Management ----");
-        System.out.println("  1. View All Users");
-        System.out.println("  2. Add User");
-        System.out.println("  3. Delete User");
-        System.out.println("  0. Back");
-        System.out.print("Select option: ");
+    private void addUser() {
+        UserDAO userDAO = new UserDAO();
+        System.out.println("\n--- Add New User ---");
 
-        int choice;
-        try {
-            choice = Integer.parseInt(scanner.nextLine().trim());
-        } catch (NumberFormatException e) {
-            System.out.println("[ERROR] Invalid input.");
+        // Username
+        String username;
+        while (true) {
+            System.out.print("  Enter username (0 to cancel): ");
+            username = scanner.nextLine().trim();
+            if (username.equals("0")) { System.out.println("  Cancelled."); return; }
+            if (username.isEmpty())   { System.out.println("  [!] Username cannot be empty."); continue; }
+            if (userDAO.existsByUsername(username)) {
+                System.out.println("  [!] Username '" + username + "' already exists.");
+                continue;
+            }
+            break;
+        }
+
+        // Password
+        String password;
+        while (true) {
+            System.out.print("  Enter password        : ");
+            password = scanner.nextLine().trim();
+            if (password.isEmpty()) { System.out.println("  [!] Password cannot be empty."); continue; }
+            System.out.print("  Confirm password      : ");
+            String confirm = scanner.nextLine().trim();
+            if (!password.equals(confirm)) { System.out.println("  [!] Passwords do not match."); continue; }
+            break;
+        }
+
+        // Role
+        System.out.print("  Grant Admin access? (Y/N): ");
+        boolean isAdmin = scanner.nextLine().trim().equalsIgnoreCase("Y");
+
+        User newUser = new User.UserBuilder()
+                .username(username)
+                .passwordHash(PasswordUtils.hash(password))
+                .admin(isAdmin)
+                .build();
+
+        UserDAO dao = new UserDAO();
+        if (dao.addUser(newUser) != null) {
+            System.out.println("\n>>> User '" + username + "' added as "
+                    + (isAdmin ? "ADMIN" : "FRONT DESK") + ".");
+        } else {
+            System.out.println("\n[!] Failed to add user.");
+        }
+        pause();
+    }
+
+    private void deleteUser() {
+        UserDAO userDAO = new UserDAO();
+        System.out.println("\n--- Delete User ---");
+        System.out.print("  Enter username to delete (0 to cancel): ");
+        String username = scanner.nextLine().trim();
+
+        if (username.equals("0")) { System.out.println("  Cancelled."); return; }
+
+        if (username.equals(currentUser.getUsername())) {
+            System.out.println("  [!] You cannot delete your own account.");
+            pause();
             return;
         }
 
-        switch (choice) {
-            case 1 -> {
-                var users = userDAO.getAllUser();
-                if (users.isEmpty()) {
-                    System.out.println("No users found.");
-                } else {
-                    users.forEach(u -> System.out.printf(
-                            "  Username: %-20s Role: %s%n",
-                            u.getUSERNAME(), u.isADMIN() ? "ADMIN" : "FRONT DESK"));
-                }
-            }
-            case 2 -> System.out.println("[TODO] Add user");
-            case 3 -> System.out.println("[TODO] Delete user");
-            case 0 -> { /* back */ }
-            default -> System.out.println("[ERROR] Invalid option.");
+        if (!userDAO.existsByUsername(username)) {
+            System.out.println("  [!] User '" + username + "' not found.");
+            pause();
+            return;
         }
+
+        System.out.print("  Confirm delete '" + username + "'? (Y/N): ");
+        if (!scanner.nextLine().trim().equalsIgnoreCase("Y")) {
+            System.out.println("  Cancelled.");
+            return;
+        }
+
+        if (userDAO.deleteByUsername(username)) {
+            System.out.println(">>> User '" + username + "' deleted successfully.");
+        } else {
+            System.out.println("[!] Failed to delete user.");
+        }
+        pause();
+    }
+
+    private void pause() {
+        System.out.print("\nPress Enter to continue...");
+        scanner.nextLine();
     }
 }

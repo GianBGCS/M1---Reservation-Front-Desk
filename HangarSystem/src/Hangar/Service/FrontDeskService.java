@@ -1,8 +1,8 @@
-package HangarSystem.Service;
+package Service;
 
-import HangarSystem.DAO.ReservationDAO;
-import HangarSystem.Model.Reservation;
-import HangarSystem.Model.FrontDesk;
+import DAO.ReservationDAO;
+import Model.Reservation;
+import Model.FrontDesk;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,19 +31,17 @@ public class FrontDeskService {
         if (tailNum == null || tailNum.trim().isEmpty()) return null;
 
         Reservation res = resDAO.findByTailNumber(tailNum.trim());
+        if (res == null) return null;
 
-        if (res != null) {
-            return new FrontDesk.Builder()
-                    .id(res.getReservationId())
-                    .tail(res.getAircraftTailNumber())
-                    .name(res.getCustomerName())
-                    .slot(res.getHangarSlot())
-                    .start(res.getStartDate().toString())
-                    .end(res.getEndDate().toString())
-                    .status(res.getStatus())
-                    .build();
-        }
-        return null;
+        return new FrontDesk.Builder()
+                .id(res.getReservationId())
+                .tail(res.getAircraftTailNumber())
+                .name(res.getCustomerName())
+                .slot(res.getHangarSlot())
+                .start(res.getStartDate().toString())
+                .end(res.getEndDate().toString())
+                .status(res.getStatus())
+                .build();
     }
 
     public boolean performCheckOut(int id) {
@@ -51,14 +49,14 @@ public class FrontDeskService {
     }
 
     public FrontDesk findWalkInAircraft(String tailNum) {
-        return validateTailNumber(tailNum); // ✅ CLEANER reuse
+        return validateTailNumber(tailNum);
     }
 
     public WalkInResult processWalkIn(String tailNumber, String customerName,
                                       String aircraftModel, double wingspan, double length,
                                       String checkInTime, String estimatedDeparture) {
 
-        LocalDateTime checkInDT   = LocalDateTime.parse(checkInTime, DATETIME_FORMAT);
+        LocalDateTime checkInDT   = LocalDateTime.parse(checkInTime,        DATETIME_FORMAT);
         LocalDateTime departureDT = LocalDateTime.parse(estimatedDeparture, DATETIME_FORMAT);
 
         LocalDate startDate = checkInDT.toLocalDate();
@@ -68,7 +66,6 @@ public class FrontDeskService {
         if (days < 1) days = 1;
 
         String availableSlot = findAvailableSlot(wingspan, length, startDate, endDate);
-
         if (availableSlot == null) {
             return WalkInResult.failure(
                     "No available slots found that can accommodate this aircraft for the requested period."
@@ -84,8 +81,7 @@ public class FrontDeskService {
                 .status(Reservation.STATUS_ACTIVE)
                 .build();
 
-        boolean saved = resDAO.save(reservation);
-        if (!saved) {
+        if (!resDAO.save(reservation)) {
             return WalkInResult.failure("Database error: Walk-In reservation could not be saved.");
         }
 
@@ -108,43 +104,40 @@ public class FrontDeskService {
 
     private String findAvailableSlot(double wingspan, double length,
                                      LocalDate start, LocalDate end) {
-
         for (String[] slot : HANGAR_SLOTS) {
             double maxWingspan = Double.parseDouble(slot[1]);
             double maxLength   = Double.parseDouble(slot[2]);
-
-            boolean fits = wingspan <= maxWingspan && length <= maxLength;
+            boolean fits      = wingspan <= maxWingspan && length <= maxLength;
             boolean available = !resDAO.hasOverlap(slot[0], start, end);
-
             if (fits && available) return slot[0];
         }
         return null;
     }
 
+    // ── Result wrapper ─────────────────────────────────────────────────────────
     public static class WalkInResult {
-        private final boolean success;
-        private final String message;
+        private final boolean  success;
+        private final String   message;
         private final FrontDesk data;
-        private final int days;
+        private final int      days;
 
         private WalkInResult(boolean success, String message, FrontDesk data, int days) {
             this.success = success;
             this.message = message;
-            this.data = data;
-            this.days = days;
+            this.data    = data;
+            this.days    = days;
         }
 
         public static WalkInResult success(FrontDesk data, int days) {
             return new WalkInResult(true, "Success", data, days);
         }
-
         public static WalkInResult failure(String message) {
             return new WalkInResult(false, message, null, 0);
         }
 
-        public boolean isSuccess() { return success; }
-        public String getMessage(){ return message; }
-        public FrontDesk getData(){ return data; }
-        public int getDays(){ return days; }
+        public boolean  isSuccess() { return success; }
+        public String   getMessage(){ return message; }
+        public FrontDesk getData()  { return data; }
+        public int      getDays()   { return days; }
     }
 }

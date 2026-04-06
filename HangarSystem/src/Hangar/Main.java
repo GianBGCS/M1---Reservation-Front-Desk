@@ -1,10 +1,8 @@
-package src.Hangar;
-
-import Hangar.DAO.UserDAO;
-import Hangar.Model.User;
-import Hangar.Service.AuthService;
-import Hangar.UI.LoginMenu;
-import Hangar.UI.MainMenu;
+import DAO.UserDAO;
+import Model.User;
+import Service.AuthService;
+import UI.LoginMenu;
+import UI.MainMenu;
 import java.util.Scanner;
 
 public class Main {
@@ -12,9 +10,9 @@ public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
 
-        UserDAO      userDAO     = new UserDAO();
-        AuthService  authService = new AuthService(userDAO);
-        LoginMenu    loginMenu   = new LoginMenu(authService, scanner);
+        UserDAO     userDAO     = new UserDAO();
+        AuthService authService = new AuthService(userDAO);
+        LoginMenu   loginMenu   = new LoginMenu(authService, scanner);
 
         User loggedInUser = loginMenu.display();
 

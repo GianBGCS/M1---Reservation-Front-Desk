@@ -1,17 +1,24 @@
-package HangarSystem.UI;
+package UI;
 
-import HangarSystem.Model.FrontDesk;
-import HangarSystem.Service.FrontDeskService;
-import HangarSystem.Service.FrontDeskService.WalkInResult;
-import HangarSystem.Utils.FrontDeskUtil;
+import Model.FrontDesk;
+import Service.FrontDeskService;
+import Service.FrontDeskService.WalkInResult;
+import Util.FrontDeskUtil;
 import java.util.Scanner;
 
 public class FrontDeskUI {
 
-    private final Scanner          scanner     = new Scanner(System.in);
-    private final FrontDeskService service     = new FrontDeskService();
-    private final String           currentUser = "gian";
-    private final String           currentRole = "FRONT DESK";
+    private final Scanner          scanner;
+    private final FrontDeskService service;
+    private final String           currentUser;
+    private final String           currentRole;
+
+    public FrontDeskUI(Scanner scanner, String currentUser, String currentRole) {
+        this.scanner      = scanner;
+        this.currentUser  = currentUser;
+        this.currentRole  = currentRole;
+        this.service      = new FrontDeskService();
+    }
 
     public void start() {
         boolean running = true;
@@ -20,21 +27,20 @@ public class FrontDeskUI {
             System.out.println(" [1] Check In");
             System.out.println(" [2] Check Out");
             System.out.println(" [3] Walk-In Reservation");
-            System.out.println(" [0] Logout");
+            System.out.println(" [0] Back to Main Menu");
             System.out.println(FrontDeskUtil.DIVIDER);
             System.out.print("Enter choice: ");
             String choice = scanner.nextLine().trim();
 
             switch (choice) {
-                case "1": handleProcess("CHECK IN");  break;
-                case "2": handleProcess("CHECK OUT"); break;
-                case "3": handleWalkIn();              break;
-                case "0": running = false;             break;
-                default:  System.out.println("\n[!] Invalid choice.");
+                case "1" -> handleProcess("CHECK IN");
+                case "2" -> handleProcess("CHECK OUT");
+                case "3" -> handleWalkIn();
+                case "0" -> running = false;
+                default  -> System.out.println("\n[!] Invalid choice.");
             }
         }
     }
-
 
     private void handleProcess(String type) {
         FrontDeskUtil.printHeader(currentUser, currentRole);
@@ -58,7 +64,7 @@ public class FrontDeskUI {
                 }
             }
         } else {
-            System.out.println("\n[!] ERROR: No record found for Tail Number [" + tailNum + "].");
+            System.out.println("\n[!] No record found for Tail Number [" + tailNum + "].");
         }
         FrontDeskUtil.pause(scanner);
     }
@@ -101,28 +107,24 @@ public class FrontDeskUI {
             if (length < 0) { printCancelled(); return; }
 
             FrontDesk found = new FrontDesk.Builder()
-                    .tail(tailNumber)
-                    .name(customerName)
+                    .tail(tailNumber).name(customerName)
                     .aircraftModel(aircraftModel)
                     .wingspan(String.valueOf(wingspan))
-                    .length(String.valueOf(length))
-                    .build();
+                    .length(String.valueOf(length)).build();
             FrontDeskUtil.printWalkInAircraftFound(found);
 
         } else {
             System.out.println();
-            System.out.println("  [ERROR] Aircraft not found.");
-            System.out.println();
-            System.out.print("  Would you like to register a new aircraft? (Y/N): ");
-
+            System.out.println("  [!] Aircraft not found.");
+            System.out.print("  Register as new? (Y/N): ");
             if (!FrontDeskUtil.isConfirmed(scanner.nextLine())) {
                 System.out.println("\n  Walk-In cancelled.");
                 FrontDeskUtil.pause(scanner);
                 return;
             }
 
-            customerName = promptString("  Enter Owner Name        : ");
-            if (customerName == null) { printCancelled(); return; }
+            customerName  = promptString("  Enter Owner Name        : ");
+            if (customerName  == null) { printCancelled(); return; }
 
             aircraftModel = promptString("  Enter Aircraft Model    : ");
             if (aircraftModel == null) { printCancelled(); return; }
@@ -134,30 +136,24 @@ public class FrontDeskUI {
             if (length < 0) { printCancelled(); return; }
 
             FrontDesk registered = new FrontDesk.Builder()
-                    .tail(tailNumber)
-                    .name(customerName)
+                    .tail(tailNumber).name(customerName)
                     .aircraftModel(aircraftModel)
                     .wingspan(String.valueOf(wingspan))
-                    .length(String.valueOf(length))
-                    .build();
+                    .length(String.valueOf(length)).build();
             FrontDeskUtil.printWalkInRegistration(registered);
         }
 
-        // Step 3: Enter estimated departure
         System.out.println();
         String estimatedDeparture = promptDateTime("Enter Estimated Departure (YYYY-MM-DD HH:MM): ");
         if (estimatedDeparture == null) { printCancelled(); return; }
 
-        // Check-in time is now
         String checkInTime = java.time.LocalDateTime.now()
                 .format(FrontDeskService.DATETIME_FORMAT);
 
-        // Step 4: Send to service
         WalkInResult result = service.processWalkIn(
                 tailNumber, customerName, aircraftModel,
                 wingspan, length, checkInTime, estimatedDeparture);
 
-        // Step 5: Print result
         System.out.println();
         System.out.println(FrontDeskUtil.DIVIDER);
         if (result.isSuccess()) {
@@ -170,10 +166,7 @@ public class FrontDeskUI {
         FrontDeskUtil.pause(scanner);
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    // PROMPT METHODS
-    // ════════════════════════════════════════════════════════════════════════
-
+    // ── Input helpers ──────────────────────────────────────────────────────────
     private String promptString(String prompt) {
         while (true) {
             System.out.print(prompt);
@@ -186,10 +179,9 @@ public class FrontDeskUI {
     private double promptPositiveDouble(String prompt) {
         while (true) {
             System.out.print(prompt);
-            String input = scanner.nextLine().trim();
-            Double val = FrontDeskUtil.validatePositiveDouble(input);
+            Double val = FrontDeskUtil.validatePositiveDouble(scanner.nextLine().trim());
             if (val != null) return val;
-            System.out.println("  [!] Invalid number. Enter a value like 12.5");
+            System.out.println("  [!] Enter a positive number (e.g. 12.5).");
         }
     }
 
@@ -198,7 +190,7 @@ public class FrontDeskUI {
             System.out.print(prompt);
             String input = scanner.nextLine().trim();
             if (FrontDeskUtil.isValidDateTime(input)) return input;
-            System.out.println("  [!] Invalid format. Use YYYY-MM-DD HH:MM (e.g. 2026-03-12 15:00)");
+            System.out.println("  [!] Use YYYY-MM-DD HH:MM (e.g. 2026-06-15 14:00).");
         }
     }
 

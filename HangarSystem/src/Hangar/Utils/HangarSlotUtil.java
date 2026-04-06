@@ -47,12 +47,12 @@ public class HangarSlotUtil {
         return input.equalsIgnoreCase("Y");
     }
 
-  
+
     public static boolean isOccupied(HangarSlot slot) {
         return HangarSlot.STATUS_OCCUPIED.equals(slot.getStatus());
     }
 
-   
+
     public static boolean isDuplicateSlotCode(String slotCode, List<HangarSlot> existingSlots) {
         for (HangarSlot slot : existingSlots) {
             if (slot.getSlotCode().equalsIgnoreCase(slotCode)) return true;
@@ -60,7 +60,7 @@ public class HangarSlotUtil {
         return false;
     }
 
-    
+
     public static MenuAction resolveMenuChoice(String choice) {
         switch (choice) {
             case "1": return MenuAction.VIEW_ALL_HANGARS_AND_SLOTS;

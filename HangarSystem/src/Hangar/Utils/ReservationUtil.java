@@ -38,7 +38,6 @@ public class ReservationUtil {
         }
     }
 
-
     public static LocalDate validateDate(String input) {
         try {
             return LocalDate.parse(input, Reservation.DATE_FORMAT);
@@ -46,7 +45,6 @@ public class ReservationUtil {
             return null;
         }
     }
-
 
     public static boolean validateEndDate(LocalDate startDate, LocalDate endDate) {
         return endDate != null && !endDate.isBefore(startDate);
@@ -59,58 +57,15 @@ public class ReservationUtil {
     public static boolean doesAircraftFit(String slotCode, double wingspan, double length) {
         String[] slot = findSlot(slotCode);
         if (slot == null) return false;
-        double maxWingspan = Double.parseDouble(slot[1]);
-        double maxLength   = Double.parseDouble(slot[2]);
-        return wingspan <= maxWingspan && length <= maxLength;
+        return wingspan <= Double.parseDouble(slot[1]) && length <= Double.parseDouble(slot[2]);
     }
 
     public static boolean isCancelled(String input) {
-        return input.equals(CANCEL);
+        return CANCEL.equals(input);
     }
 
     public static boolean isConfirmed(String input) {
         return input.equalsIgnoreCase("Y");
-    }
-
-    public static MenuAction resolveMenuChoice(String choice) {
-        switch (choice) {
-            case "1": return MenuAction.NEW_RESERVATION;
-            case "2": return MenuAction.MODIFY_RESERVATION;
-            case "3": return MenuAction.CANCEL_RESERVATION;
-            case "4": return MenuAction.VIEW_BY_CUSTOMER;
-            case "5": return MenuAction.VIEW_BY_AIRCRAFT;
-            case "6": return MenuAction.APPLY_CANCELLATION_REFUND;
-            case "0": return MenuAction.LOGOUT;
-            default:  return MenuAction.INVALID;
-        }
-    }
-
-    public enum MenuAction {
-        NEW_RESERVATION,
-        MODIFY_RESERVATION,
-        CANCEL_RESERVATION,
-        VIEW_BY_CUSTOMER,
-        VIEW_BY_AIRCRAFT,
-        APPLY_CANCELLATION_REFUND,
-        LOGOUT,
-        INVALID
-    }
-
-    public static double calculateRefundPercentage(LocalDate cancelDate, LocalDate startDate) {
-        long daysBeforeStart = cancelDate.until(startDate, java.time.temporal.ChronoUnit.DAYS);
-        if (daysBeforeStart > 30)  return 100.0;
-        if (daysBeforeStart >= 15) return 50.0;
-        if (daysBeforeStart >= 7)  return 25.0;
-        return 0.0;
-    }
-
-
-    public static double calculateRefundAmount(double depositAmount, double refundPercentage) {
-        return depositAmount * (refundPercentage / 100.0);
-    }
-
-    public static boolean isAlreadyCancelled(String status) {
-        return "CANCELLED".equalsIgnoreCase(status);
     }
 
     public static String[] findSlot(String slotCode) {
@@ -123,19 +78,40 @@ public class ReservationUtil {
     public static String buildSizeMismatchMessage(String slotCode, double wingspan, double length) {
         String[] slot = findSlot(slotCode);
         if (slot == null) return "Hangar slot '" + slotCode + "' does not exist.";
-        double maxWingspan = Double.parseDouble(slot[1]);
-        double maxLength   = Double.parseDouble(slot[2]);
         return String.format(
                 "Aircraft does not fit in slot %s.\n" +
                         "  Slot limit    — Wingspan: %.1f m | Length: %.1f m\n" +
                         "  Your aircraft — Wingspan: %.1f m | Length: %.1f m",
-                slotCode, maxWingspan, maxLength, wingspan, length
+                slotCode,
+                Double.parseDouble(slot[1]), Double.parseDouble(slot[2]),
+                wingspan, length
         );
     }
 
-    public static class ServiceResult {
+    public static MenuAction resolveMenuChoice(String choice) {
+        switch (choice) {
+            case "1": return MenuAction.NEW_RESERVATION;
+            case "2": return MenuAction.MODIFY_RESERVATION;
+            case "3": return MenuAction.CANCEL_RESERVATION;
+            case "4": return MenuAction.VIEW_BY_CUSTOMER;
+            case "5": return MenuAction.VIEW_BY_AIRCRAFT;
+            case "0": return MenuAction.LOGOUT;
+            default:  return MenuAction.INVALID;
+        }
+    }
 
-        private static final String MSG_SUCCESS = "Success";
+    public enum MenuAction {
+        NEW_RESERVATION,
+        MODIFY_RESERVATION,
+        CANCEL_RESERVATION,
+        VIEW_BY_CUSTOMER,
+        VIEW_BY_AIRCRAFT,
+        LOGOUT,
+        INVALID
+    }
+
+    // ── ServiceResult ──────────────────────────────────────────────────────────
+    public static class ServiceResult {
 
         private final boolean      success;
         private final String       message;
@@ -151,7 +127,7 @@ public class ReservationUtil {
         }
 
         public static ServiceResult success(Reservation data) {
-            return new ServiceResult(true, MSG_SUCCESS, data, null);
+            return new ServiceResult(true, "Success", data, null);
         }
 
         public static ServiceResult failure(String message) {

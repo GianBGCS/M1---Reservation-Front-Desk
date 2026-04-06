@@ -1,7 +1,7 @@
-package Hangar.UI;
+package UI;
 
-import Hangar.Model.User;
-import Hangar.Service.AuthService;
+import Model.User;
+import Service.AuthService;
 import java.util.Scanner;
 
 public class LoginMenu {
@@ -28,7 +28,7 @@ public class LoginMenu {
 
             if (authService.login(username, password)) {
                 System.out.println("[OK] Welcome, "
-                        + authService.getCurrentUser().getUSERNAME() + "!");
+                        + authService.getCurrentUser().getUsername() + "!");
                 return authService.getCurrentUser();
             }
 

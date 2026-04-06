@@ -3,7 +3,6 @@ package Model;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
-
 public class Reservation {
 
     public static final DateTimeFormatter DATE_FORMAT      = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -16,7 +15,6 @@ public class Reservation {
     private String    hangarSlot;
     private LocalDate startDate;
     private LocalDate endDate;
-    private double    depositAmount;
     private String    status;
 
     private Reservation() {}
@@ -27,7 +25,6 @@ public class Reservation {
     public String    getHangarSlot()         { return hangarSlot; }
     public LocalDate getStartDate()          { return startDate; }
     public LocalDate getEndDate()            { return endDate; }
-    public double    getDepositAmount()      { return depositAmount; }
     public String    getStatus()             { return status; }
 
     public void setReservationId(int v)         { this.reservationId = v; }
@@ -36,29 +33,25 @@ public class Reservation {
     public void setHangarSlot(String v)         { this.hangarSlot = v; }
     public void setStartDate(LocalDate v)       { this.startDate = v; }
     public void setEndDate(LocalDate v)         { this.endDate = v; }
-    public void setDepositAmount(double v)      { this.depositAmount = v; }
     public void setStatus(String v)             { this.status = v; }
 
     @Override
     public String toString() {
         return String.format(
-                "  ID: %-6d | Customer: %-20s | Aircraft: %-10s | Slot: %-4s | %s to %s | Deposit: PHP %.2f | [%s]",
+                "  ID: %-6d | Customer: %-20s | Aircraft: %-10s | Slot: %-4s | %s to %s | [%s]",
                 reservationId, customerName, aircraftTailNumber, hangarSlot,
-                startDate.format(DATE_FORMAT), endDate.format(DATE_FORMAT),
-                depositAmount, status
+                startDate.format(DATE_FORMAT), endDate.format(DATE_FORMAT), status
         );
     }
 
     public static class Builder {
-
         private int       reservationId = 0;
         private String    customerName;
         private String    aircraftTailNumber;
         private String    hangarSlot;
         private LocalDate startDate;
         private LocalDate endDate;
-        private double    depositAmount = 0.0;
-        private String    status        = STATUS_ACTIVE;
+        private String    status = STATUS_ACTIVE;
 
         public Builder reservationId(int val)         { this.reservationId = val;      return this; }
         public Builder customerName(String val)       { this.customerName = val;       return this; }
@@ -66,7 +59,6 @@ public class Reservation {
         public Builder hangarSlot(String val)         { this.hangarSlot = val;         return this; }
         public Builder startDate(LocalDate val)       { this.startDate = val;          return this; }
         public Builder endDate(LocalDate val)         { this.endDate = val;            return this; }
-        public Builder depositAmount(double val)      { this.depositAmount = val;      return this; }
         public Builder status(String val)             { this.status = val;             return this; }
 
         public Reservation build() {
@@ -77,7 +69,6 @@ public class Reservation {
             r.hangarSlot         = this.hangarSlot;
             r.startDate          = this.startDate;
             r.endDate            = this.endDate;
-            r.depositAmount      = this.depositAmount;
             r.status             = this.status;
             return r;
         }
