@@ -1,8 +1,11 @@
 package Service;
 
+import DAO.HangarSlotDAO;
 import DAO.ReservationDAO;
-import Model.Reservation;
 import Model.FrontDesk;
+import Model.HangarSlot;
+import Model.Reservation;
+import Util.ReservationUtil;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -14,16 +17,7 @@ public class FrontDeskService {
     public static final DateTimeFormatter DATETIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    private static final String[][] HANGAR_SLOTS = {
-            { "Hangar A / Slot A-01", "20.0", "15.0" },
-            { "Hangar A / Slot A-02", "20.0", "15.0" },
-            { "Hangar A / Slot A-03", "20.0", "15.0" },
-            { "Hangar B / Slot B-01", "36.0", "30.0" },
-            { "Hangar B / Slot B-02", "36.0", "30.0" },
-            { "Hangar B / Slot B-03", "36.0", "30.0" },
-            { "Hangar C / Slot C-01", "65.0", "55.0" },
-            { "Hangar C / Slot C-02", "65.0", "55.0" }
-    };
+    // Removed hardcoded HANGAR_SLOTS array
 
     private final ReservationDAO resDAO = new ReservationDAO();
 
@@ -102,19 +96,18 @@ public class FrontDeskService {
         return WalkInResult.success(result, (int) days);
     }
 
+    // Updated to use database slots
     private String findAvailableSlot(double wingspan, double length,
                                      LocalDate start, LocalDate end) {
-        for (String[] slot : HANGAR_SLOTS) {
-            double maxWingspan = Double.parseDouble(slot[1]);
-            double maxLength   = Double.parseDouble(slot[2]);
-            boolean fits      = wingspan <= maxWingspan && length <= maxLength;
-            boolean available = !resDAO.hasOverlap(slot[0], start, end);
-            if (fits && available) return slot[0];
+        for (HangarSlot slot : ReservationUtil.getAllSlots()) {
+            boolean fits = wingspan <= slot.getMaxWingspan() && length <= slot.getMaxLength();
+            boolean available = !resDAO.hasOverlap(slot.getSlotCode(), start, end);
+            if (fits && available) return slot.getSlotCode();
         }
         return null;
     }
 
-    // ── Result wrapper ─────────────────────────────────────────────────────────
+    // ── Result wrapper (unchanged) ─────────────────────────────────────────
     public static class WalkInResult {
         private final boolean  success;
         private final String   message;
