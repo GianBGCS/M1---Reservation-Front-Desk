@@ -4,11 +4,12 @@ import Model.Customer;
 import java.util.Scanner;
 
 public class CustomerUtils {
-    public static void printHeader(String title) {
+
+    public static void printHeader(String title, String loggedInUser, String userRole) {
         System.out.println("\n===============================================================");
         System.out.println("      AVIATION HANGAR RESERVATION AND FRONT DESK SYSTEM");
         System.out.println("===============================================================");
-        System.out.printf("   Logged in as: %-15s Role: %s %n", "gian", "FRONT DESK");
+        System.out.printf("   Logged in as: %-15s Role: %s %n", loggedInUser, userRole);
         System.out.println("===============================================================");
         System.out.println(title + "\n");
     }

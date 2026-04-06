@@ -6,12 +6,12 @@ import java.util.Scanner;
 
 public class LoginMenu {
 
-    Scanner scan = new Scanner(System.in);
-
     private final AuthService authService;
+    private final Scanner     scanner;
 
-    public LoginMenu(AuthService authService) {
+    public LoginMenu(AuthService authService, Scanner scanner) {
         this.authService = authService;
+        this.scanner     = scanner;
     }
 
     public User display() {
@@ -20,13 +20,11 @@ public class LoginMenu {
             System.out.println("   Aviation Hangar System — Login");
             System.out.println("========================================");
 
+            System.out.print("Username: ");
+            String username = scanner.nextLine();
 
-
-            System.out.println("Username: ");
-            String username = scan.nextLine();
-
-            System.out.println("Password: ");
-            String password = scan.nextLine();
+            System.out.print("Password: ");
+            String password = scanner.nextLine();
 
             if (authService.login(username, password)) {
                 System.out.println("[OK] Welcome, "
