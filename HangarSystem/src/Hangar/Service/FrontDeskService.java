@@ -1,7 +1,9 @@
 package Service;
 
+import DAO.CustomerDAO;
 import DAO.HangarSlotDAO;
 import DAO.ReservationDAO;
+import Model.Customer;
 import Model.FrontDesk;
 import Model.HangarSlot;
 import Model.Reservation;
@@ -11,15 +13,16 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.Random;
 
 public class FrontDeskService {
 
     public static final DateTimeFormatter DATETIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    // Removed hardcoded HANGAR_SLOTS array
-
     private final ReservationDAO resDAO = new ReservationDAO();
+    private final CustomerDAO customerDAO = new CustomerDAO();
+    private final Random random = new Random();
 
     public FrontDesk validateTailNumber(String tailNum) {
         if (tailNum == null || tailNum.trim().isEmpty()) return null;
@@ -46,7 +49,9 @@ public class FrontDeskService {
         return validateTailNumber(tailNum);
     }
 
+    // Updated method signature – includes phone and email
     public WalkInResult processWalkIn(String tailNumber, String customerName,
+                                      String phone, String email,
                                       String aircraftModel, double wingspan, double length,
                                       String checkInTime, String estimatedDeparture) {
 
@@ -66,6 +71,27 @@ public class FrontDeskService {
             );
         }
 
+        // --- Handle customer (phone/email) ---
+        Customer customer = customerDAO.findByPhone(phone);
+        if (customer == null) customer = customerDAO.findByEmail(email);
+
+        if (customer != null) {
+            // Use existing customer's name
+            customerName = customer.getName();
+        } else {
+            // Create new customer
+            int newId = 10000 + random.nextInt(90000);
+            Customer newCustomer = new Customer.Builder()
+                    .setName(customerName)
+                    .setPhone(phone)
+                    .setEmail(email)
+                    .build();
+            if (!customerDAO.saveCustomer(newCustomer)) {
+                return WalkInResult.failure("Failed to save customer information. Duplicate phone or email?");
+            }
+        }
+
+        // Create and save reservation
         Reservation reservation = new Reservation.Builder()
                 .customerName(customerName)
                 .aircraftTailNumber(tailNumber)

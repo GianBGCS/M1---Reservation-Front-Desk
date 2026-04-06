@@ -4,20 +4,26 @@ import Model.FrontDesk;
 import Service.FrontDeskService;
 import Service.FrontDeskService.WalkInResult;
 import Util.FrontDeskUtil;
+
 import java.util.Scanner;
+import java.util.regex.Pattern;
 
 public class FrontDeskUI {
 
-    private final Scanner          scanner;
+    private final Scanner scanner;
     private final FrontDeskService service;
-    private final String           currentUser;
-    private final String           currentRole;
+    private final String currentUser;
+    private final String currentRole;
+
+    // Regex patterns for phone (11 digits) and email (@gmail.com)
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^\\d{11}$");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@gmail\\.com$");
 
     public FrontDeskUI(Scanner scanner, String currentUser, String currentRole) {
-        this.scanner      = scanner;
-        this.currentUser  = currentUser;
-        this.currentRole  = currentRole;
-        this.service      = new FrontDeskService();
+        this.scanner = scanner;
+        this.currentUser = currentUser;
+        this.currentRole = currentRole;
+        this.service = new FrontDeskService();
     }
 
     public void start() {
@@ -87,6 +93,8 @@ public class FrontDeskUI {
         FrontDesk existing = service.findWalkInAircraft(tailNumber);
 
         String customerName;
+        String phone;
+        String email;
         String aircraftModel;
         double wingspan;
         double length;
@@ -97,6 +105,12 @@ public class FrontDeskUI {
             System.out.printf("  Owner     : %s%n", existing.getCustomerName());
 
             customerName  = existing.getCustomerName();
+            // Ask for phone/email (may be new or existing)
+            phone = promptPhone("  Enter customer phone (11 digits) : ");
+            if (phone == null) { printCancelled(); return; }
+            email = promptEmail("  Enter customer email (@gmail.com): ");
+            if (email == null) { printCancelled(); return; }
+
             aircraftModel = promptString("  Enter Aircraft Model    : ");
             if (aircraftModel == null) { printCancelled(); return; }
 
@@ -123,8 +137,13 @@ public class FrontDeskUI {
                 return;
             }
 
-            customerName  = promptString("  Enter Owner Name        : ");
-            if (customerName  == null) { printCancelled(); return; }
+            customerName = promptString("  Enter Owner Name        : ");
+            if (customerName == null) { printCancelled(); return; }
+
+            phone = promptPhone("  Enter customer phone (11 digits) : ");
+            if (phone == null) { printCancelled(); return; }
+            email = promptEmail("  Enter customer email (@gmail.com): ");
+            if (email == null) { printCancelled(); return; }
 
             aircraftModel = promptString("  Enter Aircraft Model    : ");
             if (aircraftModel == null) { printCancelled(); return; }
@@ -150,8 +169,9 @@ public class FrontDeskUI {
         String checkInTime = java.time.LocalDateTime.now()
                 .format(FrontDeskService.DATETIME_FORMAT);
 
+        // Pass phone and email to service
         WalkInResult result = service.processWalkIn(
-                tailNumber, customerName, aircraftModel,
+                tailNumber, customerName, phone, email, aircraftModel,
                 wingspan, length, checkInTime, estimatedDeparture);
 
         System.out.println();
@@ -191,6 +211,27 @@ public class FrontDeskUI {
             String input = scanner.nextLine().trim();
             if (FrontDeskUtil.isValidDateTime(input)) return input;
             System.out.println("  [!] Use YYYY-MM-DD HH:MM (e.g. 2026-06-15 14:00).");
+        }
+    }
+
+    // === NEW: Phone and email input helpers ===
+    private String promptPhone(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String input = scanner.nextLine().trim();
+            if (input.equals("0")) return null;
+            if (PHONE_PATTERN.matcher(input).matches()) return input;
+            System.out.println("  [!] Phone must be exactly 11 digits. Enter 0 to cancel.");
+        }
+    }
+
+    private String promptEmail(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String input = scanner.nextLine().trim();
+            if (input.equals("0")) return null;
+            if (EMAIL_PATTERN.matcher(input).matches()) return input;
+            System.out.println("  [!] Email must be a valid @gmail.com address. Enter 0 to cancel.");
         }
     }
 

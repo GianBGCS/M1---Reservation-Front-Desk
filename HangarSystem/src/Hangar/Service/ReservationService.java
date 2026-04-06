@@ -1,7 +1,9 @@
 package Service;
 
+import DAO.CustomerDAO;
 import DAO.HangarSlotDAO;
 import DAO.ReservationDAO;
+import Model.Customer;
 import Model.HangarSlot;
 import Model.Reservation;
 import Util.ReservationUtil;
@@ -10,19 +12,24 @@ import Util.ReservationUtil.ServiceResult;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class ReservationService {
 
     private static final int NO_EXCLUDE_ID = 0;
-
     private final ReservationDAO dao;
+    private final CustomerDAO customerDAO = new CustomerDAO();
+    private final Random random = new Random();
 
     public ReservationService() {
         this.dao = new ReservationDAO();
     }
 
+    // Updated method signature – now includes phone and email
     public ServiceResult createReservation(
             String    customerName,
+            String    phone,
+            String    email,
             String    aircraftTailNumber,
             String    hangarSlot,
             double    wingspan,
@@ -43,6 +50,28 @@ public class ReservationService {
                     "Slot " + hangarSlot + " is already booked for the selected dates.",
                     findSuitableSlots(wingspan, length, startDate, endDate));
 
+        // --- Handle customer (phone/email) ---
+        Customer customer = customerDAO.findByPhone(phone);
+        if (customer == null) customer = customerDAO.findByEmail(email);
+
+        if (customer != null) {
+            // Use existing customer's name (overrides the provided name)
+            customerName = customer.getName();
+        } else {
+            // Create a new customer
+            int newId = 10000 + random.nextInt(90000);
+            Customer newCustomer = new Customer.Builder()
+                    .setId(newId)
+                    .setName(customerName)
+                    .setPhone(phone)
+                    .setEmail(email)
+                    .build();
+            if (!customerDAO.saveCustomer(newCustomer)) {
+                return ServiceResult.failure("Failed to save customer information. Duplicate phone or email?");
+            }
+        }
+
+        // Create and save reservation
         Reservation reservation = new Reservation.Builder()
                 .customerName(customerName)
                 .aircraftTailNumber(aircraftTailNumber)
@@ -111,7 +140,6 @@ public class ReservationService {
         return ServiceResult.success(existing);
     }
 
-    // Updated to use database slots
     public List<String> findSuitableSlots(double wingspan, double length,
                                           LocalDate start, LocalDate end) {
         List<String> suitable = new ArrayList<>();

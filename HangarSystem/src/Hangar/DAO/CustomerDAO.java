@@ -46,6 +46,42 @@ public class CustomerDAO {
         return null;
     }
 
+    // === NEW: Find customer by phone ===
+    public Customer findByPhone(String phone) {
+        String sql = "SELECT * FROM customers WHERE phone = ?";
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, phone);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return new Customer.Builder()
+                        .setId(rs.getInt("id"))
+                        .setName(rs.getString("name"))
+                        .setPhone(rs.getString("phone"))
+                        .setEmail(rs.getString("email")).build();
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return null;
+    }
+
+    // === NEW: Find customer by email ===
+    public Customer findByEmail(String email) {
+        String sql = "SELECT * FROM customers WHERE email = ?";
+        try (Connection conn = DriverManager.getConnection(DB_URL);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, email);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return new Customer.Builder()
+                        .setId(rs.getInt("id"))
+                        .setName(rs.getString("name"))
+                        .setPhone(rs.getString("phone"))
+                        .setEmail(rs.getString("email")).build();
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return null;
+    }
+
     public boolean delete(int id) {
         String sql = "DELETE FROM customers WHERE id = ?";
         try (Connection conn = DriverManager.getConnection(DB_URL);

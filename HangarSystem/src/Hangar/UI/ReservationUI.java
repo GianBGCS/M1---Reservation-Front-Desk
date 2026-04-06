@@ -10,19 +10,24 @@ import Util.ReservationUtil.ServiceResult;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Scanner;
+import java.util.regex.Pattern;
 
 public class ReservationUI {
 
-    private final Scanner            scanner;
-    private final String             loggedInUser;
-    private final String             userRole;
+    private final Scanner scanner;
+    private final String loggedInUser;
+    private final String userRole;
     private final ReservationService service;
 
+    // Regex patterns for phone (11 digits) and email (only @gmail.com)
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^\\d{11}$");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@gmail\\.com$");
+
     public ReservationUI(Scanner scanner, String loggedInUser, String userRole) {
-        this.scanner      = scanner;
+        this.scanner = scanner;
         this.loggedInUser = loggedInUser;
-        this.userRole     = userRole;
-        this.service      = new ReservationService();
+        this.userRole = userRole;
+        this.service = new ReservationService();
     }
 
     public void run() {
@@ -49,13 +54,20 @@ public class ReservationUI {
         }
     }
 
-    // ── Menu Actions (unchanged except printSlotTable) ────────────────────────
+    // ── Menu Actions ──────────────────────────────────────────────────────────
     private void runNewReservation() {
         printHeader();
         System.out.println("  NEW RESERVATION\n");
 
         String customerName = promptString("  Enter customer name        : ");
         if (customerName == null) { printCancelled(); return; }
+
+        // --- NEW: phone and email prompts ---
+        String phone = promptPhone("  Enter customer phone (11 digits) : ");
+        if (phone == null) { printCancelled(); return; }
+
+        String email = promptEmail("  Enter customer email (@gmail.com): ");
+        if (email == null) { printCancelled(); return; }
 
         String tailNumber = promptString("  Enter aircraft tail number : ");
         if (tailNumber == null) { printCancelled(); return; }
@@ -68,7 +80,7 @@ public class ReservationUI {
         Double length = promptPositiveDouble("  Aircraft length   (meters) : ");
         if (length == null) { printCancelled(); return; }
 
-        printSlotTable();  // ← updated method
+        printSlotTable();
         String hangarSlot = promptHangarSlot();
         if (hangarSlot == null) { printCancelled(); return; }
 
@@ -78,12 +90,10 @@ public class ReservationUI {
         LocalDate endDate = promptEndDate(startDate);
         if (endDate == null) { printCancelled(); return; }
 
-        printConfirmation(customerName, tailNumber, wingspan, length, hangarSlot, startDate, endDate);
-        System.out.print("  Confirm? [Y/N]: ");
-        if (!ReservationUtil.isConfirmed(scanner.nextLine().trim())) { printCancelled(); return; }
-
+        // Pass phone and email to service
         ServiceResult result = service.createReservation(
-                customerName, tailNumber, hangarSlot, wingspan, length, startDate, endDate);
+                customerName, phone, email, tailNumber, hangarSlot,
+                wingspan, length, startDate, endDate);
 
         printResult("Reservation created successfully!", result);
         promptEnterToContinue();
@@ -150,7 +160,7 @@ public class ReservationUI {
         Double ln = promptPositiveDouble("  Length   (meters): ");
         if (ln == null) { printCancelled(); return; }
 
-        printSlotTable();  // ← updated method
+        printSlotTable();
         String newSlot = promptHangarSlotOrKeep(current.getHangarSlot());
         if (newSlot == null) { printCancelled(); return; }
 
@@ -248,7 +258,6 @@ public class ReservationUI {
         System.out.println();
     }
 
-    // UPDATED: now reads from database
     private void printSlotTable() {
         System.out.println("\n" + ReservationUtil.DIVIDER);
         System.out.println("  HANGAR SLOTS — SIZE LIMITS");
@@ -297,7 +306,7 @@ public class ReservationUI {
         System.out.println("\n  Cancelled. Returning to menu...\n");
     }
 
-    // ─── Input helpers (unchanged) ───────────────────────────────────────────
+    // ─── Input helpers (including new phone/email) ───────────────────────────
     private String promptString(String prompt) {
         while (true) {
             System.out.print(prompt);
@@ -403,6 +412,27 @@ public class ReservationUI {
         if (input.equals("0")) return null;
         if (input.isEmpty())   return current;
         return input;
+    }
+
+    // === NEW: Phone and email input helpers ===
+    private String promptPhone(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String input = scanner.nextLine().trim();
+            if (ReservationUtil.isCancelled(input)) return null;
+            if (PHONE_PATTERN.matcher(input).matches()) return input;
+            System.out.println("  [!] Phone must be exactly 11 digits (0-9). Enter 0 to cancel.");
+        }
+    }
+
+    private String promptEmail(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String input = scanner.nextLine().trim();
+            if (ReservationUtil.isCancelled(input)) return null;
+            if (EMAIL_PATTERN.matcher(input).matches()) return input;
+            System.out.println("  [!] Email must be a valid @gmail.com address. Enter 0 to cancel.");
+        }
     }
 
     private void promptEnterToContinue() {
