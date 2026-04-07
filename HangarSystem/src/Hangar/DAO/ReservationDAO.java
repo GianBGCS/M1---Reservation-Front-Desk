@@ -33,20 +33,22 @@ public class ReservationDAO {
 
     private static final String SQL_UPDATE =
             "UPDATE reservations " +
-                    "SET aircraft_tail_number=?, hangar_slot=?, start_date=?, end_date=? " +
+                    "SET aircraft_tail_number=?, hangar_slot=?, start_date=?, end_date=?, status=? " +
                     "WHERE id=?";
 
     private static final String SQL_INSERT =
-            "INSERT INTO reservations " +
-                    "(customer_name, aircraft_tail_number, hangar_slot, start_date, end_date, status) " +
-                    "VALUES (?,?,?,?,?,?)";
+            "INSERT INTO reservations (id, customer_name, aircraft_tail_number, hangar_slot, start_date, end_date, status) " +
+                    "VALUES (?,?,?,?,?,?,?)";
+
+    private static final String SQL_EXISTS_BY_ID =
+            "SELECT 1 FROM reservations WHERE id = ?";
 
     // ── Constructor / schema ───────────────────────────────────────────────────
     public ReservationDAO() {
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
             stmt.execute("CREATE TABLE IF NOT EXISTS reservations (" +
-                    "id                   INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "id                   INTEGER PRIMARY KEY, " +   // removed AUTOINCREMENT
                     "customer_name        TEXT    NOT NULL, " +
                     "aircraft_tail_number TEXT    NOT NULL, " +
                     "hangar_slot          TEXT    NOT NULL, " +
@@ -75,31 +77,27 @@ public class ReservationDAO {
     }
 
     // ── CRUD ───────────────────────────────────────────────────────────────────
-    public Reservation insert(Reservation r) {
+    public boolean insert(Reservation r) {
+        String sql = SQL_INSERT;
         try (Connection conn = getConnection();
-             PreparedStatement ps = conn.prepareStatement(SQL_INSERT, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, r.getCustomerName());
-            ps.setString(2, r.getAircraftTailNumber());
-            ps.setString(3, r.getHangarSlot());
-            ps.setString(4, r.getStartDate().format(Reservation.DATE_FORMAT));
-            ps.setString(5, r.getEndDate().format(Reservation.DATE_FORMAT));
-            ps.setString(6, r.getStatus());
-            if (ps.executeUpdate() > 0) {
-                ResultSet keys = ps.getGeneratedKeys();
-                if (keys.next()) {
-                    r.setReservationId(keys.getInt(1));
-                    return r;
-                }
-            }
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, r.getReservationId());
+            ps.setString(2, r.getCustomerName());
+            ps.setString(3, r.getAircraftTailNumber());
+            ps.setString(4, r.getHangarSlot());
+            ps.setString(5, r.getStartDate().format(Reservation.DATE_FORMAT));
+            ps.setString(6, r.getEndDate().format(Reservation.DATE_FORMAT));
+            ps.setString(7, r.getStatus());
+            return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             System.err.println("  [DB ERROR] insert: " + e.getMessage());
+            return false;
         }
-        return null;
     }
 
     /** Convenience alias used by FrontDeskService. */
     public boolean save(Reservation r) {
-        return insert(r) != null;
+        return insert(r);
     }
 
     public boolean update(Reservation r) {
@@ -109,7 +107,8 @@ public class ReservationDAO {
             ps.setString(2, r.getHangarSlot());
             ps.setString(3, r.getStartDate().format(Reservation.DATE_FORMAT));
             ps.setString(4, r.getEndDate().format(Reservation.DATE_FORMAT));
-            ps.setInt   (5, r.getReservationId());
+            ps.setString(5, r.getStatus());
+            ps.setInt   (6, r.getReservationId());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             System.err.println("  [DB ERROR] update: " + e.getMessage());
@@ -136,6 +135,18 @@ public class ReservationDAO {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { return false; }
+    }
+
+    public boolean existsById(int id) {
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(SQL_EXISTS_BY_ID)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            return false;
+        }
     }
 
     // ── Queries ────────────────────────────────────────────────────────────────

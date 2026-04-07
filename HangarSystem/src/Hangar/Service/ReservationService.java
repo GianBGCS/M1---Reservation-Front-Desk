@@ -25,7 +25,6 @@ public class ReservationService {
         this.dao = new ReservationDAO();
     }
 
-    // Updated method signature – now includes phone and email
     public ServiceResult createReservation(
             String    customerName,
             String    phone,
@@ -55,10 +54,9 @@ public class ReservationService {
         if (customer == null) customer = customerDAO.findByEmail(email);
 
         if (customer != null) {
-            // Use existing customer's name (overrides the provided name)
             customerName = customer.getName();
         } else {
-            // Create a new customer
+            // Create a new customer with a random ID (10000-99999)
             int newId = 10000 + random.nextInt(90000);
             Customer newCustomer = new Customer.Builder()
                     .setId(newId)
@@ -69,22 +67,46 @@ public class ReservationService {
             if (!customerDAO.saveCustomer(newCustomer)) {
                 return ServiceResult.failure("Failed to save customer information. Duplicate phone or email?");
             }
+            customer = newCustomer;
         }
 
-        // Create and save reservation
+        int customerId = customer.getId();
+        Reservation existing = dao.findById(customerId);
+
+        // If a reservation already exists with this customer ID
+        if (existing != null) {
+            if (existing.getStatus().equals(Reservation.STATUS_ACTIVE)) {
+                return ServiceResult.failure("Customer already has an active reservation (ID " + customerId + ").");
+            } else if (existing.getStatus().equals(Reservation.STATUS_CANCELLED)) {
+                // Reactivate the cancelled reservation with new details
+                existing.setAircraftTailNumber(aircraftTailNumber);
+                existing.setHangarSlot(hangarSlot);
+                existing.setStartDate(startDate);
+                existing.setEndDate(endDate);
+                existing.setStatus(Reservation.STATUS_ACTIVE);
+                if (dao.update(existing)) {
+                    return ServiceResult.success(existing);
+                } else {
+                    return ServiceResult.failure("Database error: could not reactivate existing reservation.");
+                }
+            }
+        }
+
+        // No existing reservation – create a new one with ID = customerId
         Reservation reservation = new Reservation.Builder()
+                .reservationId(customerId)
                 .customerName(customerName)
                 .aircraftTailNumber(aircraftTailNumber)
                 .hangarSlot(hangarSlot)
                 .startDate(startDate)
                 .endDate(endDate)
+                .status(Reservation.STATUS_ACTIVE)
                 .build();
 
-        Reservation saved = dao.insert(reservation);
-        if (saved == null)
+        if (!dao.insert(reservation))
             return ServiceResult.failure("Database error: reservation could not be saved.");
 
-        return ServiceResult.success(saved);
+        return ServiceResult.success(reservation);
     }
 
     public ServiceResult cancelReservation(int reservationId) {
@@ -92,14 +114,19 @@ public class ReservationService {
         if (existing == null)
             return ServiceResult.failure("Reservation ID " + reservationId + " not found.");
         if (!existing.getStatus().equals(Reservation.STATUS_ACTIVE))
-            return ServiceResult.failure("Reservation is already " + existing.getStatus() + ".");
+            return ServiceResult.failure("Only ACTIVE reservations can be cancelled.");
+
         if (!LocalDate.now().isBefore(existing.getStartDate()))
             return ServiceResult.failure("Cannot cancel: the aircraft's start date has already passed.");
 
-        if (!dao.updateStatus(reservationId, Reservation.STATUS_CANCELLED))
-            return ServiceResult.failure("Database error: status could not be updated.");
+        int customerId = reservationId;
 
-        existing.setStatus(Reservation.STATUS_CANCELLED);
+        if (!dao.delete(reservationId))
+            return ServiceResult.failure("Database error: could not delete reservation.");
+
+        if (!customerDAO.delete(customerId))
+            return ServiceResult.failure("Reservation deleted, but failed to delete customer. Please contact support.");
+
         return ServiceResult.success(existing);
     }
 

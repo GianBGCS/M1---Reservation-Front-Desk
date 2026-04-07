@@ -49,7 +49,6 @@ public class FrontDeskService {
         return validateTailNumber(tailNum);
     }
 
-    // Updated method signature – includes phone and email
     public WalkInResult processWalkIn(String tailNumber, String customerName,
                                       String phone, String email,
                                       String aircraftModel, double wingspan, double length,
@@ -76,12 +75,11 @@ public class FrontDeskService {
         if (customer == null) customer = customerDAO.findByEmail(email);
 
         if (customer != null) {
-            // Use existing customer's name
             customerName = customer.getName();
         } else {
-            // Create new customer
             int newId = 10000 + random.nextInt(90000);
             Customer newCustomer = new Customer.Builder()
+                    .setId(newId)
                     .setName(customerName)
                     .setPhone(phone)
                     .setEmail(email)
@@ -89,10 +87,46 @@ public class FrontDeskService {
             if (!customerDAO.saveCustomer(newCustomer)) {
                 return WalkInResult.failure("Failed to save customer information. Duplicate phone or email?");
             }
+            customer = newCustomer;
         }
 
-        // Create and save reservation
+        int customerId = customer.getId();
+        Reservation existing = resDAO.findById(customerId);
+
+        // If a reservation already exists with this customer ID
+        if (existing != null) {
+            if (existing.getStatus().equals(Reservation.STATUS_ACTIVE)) {
+                return WalkInResult.failure("Customer already has an active reservation (ID " + customerId + ").");
+            } else if (existing.getStatus().equals(Reservation.STATUS_CANCELLED)) {
+                // Reactivate the cancelled reservation with new details
+                existing.setAircraftTailNumber(tailNumber);
+                existing.setHangarSlot(availableSlot);
+                existing.setStartDate(startDate);
+                existing.setEndDate(endDate);
+                existing.setStatus(Reservation.STATUS_ACTIVE);
+                if (!resDAO.update(existing)) {
+                    return WalkInResult.failure("Database error: could not reactivate existing reservation.");
+                }
+                FrontDesk result = new FrontDesk.Builder()
+                        .tail(tailNumber)
+                        .name(customerName)
+                        .aircraftModel(aircraftModel)
+                        .wingspan(String.valueOf(wingspan))
+                        .length(String.valueOf(length))
+                        .slot(availableSlot)
+                        .checkInTime(checkInTime)
+                        .estimatedDep(estimatedDeparture)
+                        .start(startDate.toString())
+                        .end(endDate.toString())
+                        .status(Reservation.STATUS_ACTIVE)
+                        .build();
+                return WalkInResult.success(result, (int) days);
+            }
+        }
+
+        // No existing reservation – create a new one with ID = customerId
         Reservation reservation = new Reservation.Builder()
+                .reservationId(customerId)
                 .customerName(customerName)
                 .aircraftTailNumber(tailNumber)
                 .hangarSlot(availableSlot)
@@ -122,7 +156,6 @@ public class FrontDeskService {
         return WalkInResult.success(result, (int) days);
     }
 
-    // Updated to use database slots
     private String findAvailableSlot(double wingspan, double length,
                                      LocalDate start, LocalDate end) {
         for (HangarSlot slot : ReservationUtil.getAllSlots()) {
