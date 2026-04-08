@@ -1,11 +1,13 @@
 package UI;
 
 import Model.HangarSlot;
+import Model.Reservation;
 import Service.HangarSlotService;
 import Util.HangarSlotUtil;
 import Util.HangarSlotUtil.MenuAction;
 import Util.HangarSlotUtil.ServiceResult;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Scanner;
 
@@ -30,7 +32,6 @@ public class HangarSlotUI {
             System.out.print("Enter choice: ");
             String choice = scanner.nextLine().trim();
 
-            // All case routing handled by Util
             MenuAction action = HangarSlotUtil.resolveMenuChoice(choice);
 
             switch (action) {
@@ -56,7 +57,6 @@ public class HangarSlotUI {
         System.out.println("  VIEW ALL HANGARS AND SLOTS");
         System.out.println();
 
-        // Ask if user wants to filter by hangar
         System.out.println("  [1] View all hangars and slots");
         System.out.println("  [2] View slots by specific hangar");
         System.out.println();
@@ -66,22 +66,16 @@ public class HangarSlotUI {
         if (HangarSlotUtil.isCancelled(choice)) { printCancelled(); return; }
 
         if (choice.equals("1")) {
-            // View all
             ServiceResult<List<HangarSlot>> result = service.viewAllHangarsAndSlots();
             printSlotListResult(result, "ALL HANGARS AND SLOTS");
-
         } else if (choice.equals("2")) {
-            // View by specific hangar
             String hangarName = promptString("  Enter hangar name: ");
             if (hangarName == null) { printCancelled(); return; }
-
             ServiceResult<List<HangarSlot>> result = service.viewSlotsByHangar(hangarName);
             printSlotListResult(result, "SLOTS IN HANGAR: " + hangarName.toUpperCase());
-
         } else {
             System.out.println("\n  [!] Invalid choice.\n");
         }
-
         promptEnterToContinue();
     }
 
@@ -90,7 +84,6 @@ public class HangarSlotUI {
         System.out.println("  CHECK SLOT AVAILABILITY");
         System.out.println();
 
-        // Ask how user wants to check
         System.out.println("  [1] Check all available slots");
         System.out.println("  [2] Check available slots by hangar");
         System.out.println("  [3] Check a specific slot by slot code");
@@ -103,25 +96,30 @@ public class HangarSlotUI {
         if (choice.equals("1")) {
             ServiceResult<List<HangarSlot>> result = service.checkAllSlotAvailability();
             printSlotListResult(result, "ALL AVAILABLE SLOTS");
-
         } else if (choice.equals("2")) {
             String hangarName = promptString("  Enter hangar name: ");
             if (hangarName == null) { printCancelled(); return; }
-
             ServiceResult<List<HangarSlot>> result = service.checkSlotAvailabilityByHangar(hangarName);
             printSlotListResult(result, "AVAILABLE SLOTS IN: " + hangarName.toUpperCase());
-
         } else if (choice.equals("3")) {
-            String slotCode = promptSlotCode("  Enter slot code  : ");
+            String slotCode = promptSlotCode("  Enter slot code: ");
             if (slotCode == null) { printCancelled(); return; }
 
-            ServiceResult<HangarSlot> result = service.checkSlotByCode(slotCode);
-            printSingleSlotResult(result);
+            System.out.print("  Check availability for which date (yyyy-MM-dd, Enter for today): ");
+            String dateInput = scanner.nextLine().trim();
+            LocalDate checkDate;
+            try {
+                checkDate = dateInput.isEmpty() ? LocalDate.now() : LocalDate.parse(dateInput, Reservation.DATE_FORMAT);
+            } catch (Exception e) {
+                System.out.println("  [!] Invalid date format. Using today.");
+                checkDate = LocalDate.now();
+            }
 
+            ServiceResult<HangarSlot> result = service.checkSlotByCodeForDate(slotCode, checkDate);
+            printSingleSlotResultForDate(result, checkDate);
         } else {
             System.out.println("\n  [!] Invalid choice.\n");
         }
-
         promptEnterToContinue();
     }
 
@@ -166,15 +164,14 @@ public class HangarSlotUI {
         System.out.println(HangarSlotUtil.DIVIDER);
     }
 
-    private void printSingleSlotResult(ServiceResult<HangarSlot> result) {
+    private void printSingleSlotResultForDate(ServiceResult<HangarSlot> result, LocalDate date) {
         System.out.println();
         System.out.println(HangarSlotUtil.DIVIDER);
-        System.out.println("  SLOT AVAILABILITY RESULT");
+        System.out.println("  SLOT AVAILABILITY RESULT for " + date);
         System.out.println(HangarSlotUtil.DIVIDER);
         if (result.isSuccess()) {
             HangarSlot slot = result.getData();
-            System.out.println("  [AVAILABLE] Slot is free for reservation.");
-            System.out.println();
+            System.out.println("  [AVAILABLE] Slot is free on " + date);
             System.out.println(slot);
         } else {
             System.out.println("  [!] " + result.getMessage());

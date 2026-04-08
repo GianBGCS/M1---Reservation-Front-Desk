@@ -1,11 +1,15 @@
 package Service;
 
 import DAO.HangarSlotDAO;
+import DAO.ReservationDAO;
 import Model.HangarSlot;
+import Model.Reservation;
 import Util.HangarSlotUtil;
 import Util.HangarSlotUtil.ServiceResult;
 
+import java.time.LocalDate;
 import java.util.List;
+
 public class HangarSlotService {
 
     private final HangarSlotDAO dao;
@@ -51,17 +55,32 @@ public class HangarSlotService {
 
     public ServiceResult<HangarSlot> checkSlotByCode(String slotCode) {
         HangarSlot slot = dao.findBySlotCode(slotCode);
+        if (slot == null) {
+            return ServiceResult.failure("Slot '" + slotCode + "' does not exist.");
+        }
+        if (HangarSlotUtil.isOccupied(slot)) {
+            return ServiceResult.failure("Slot '" + slotCode + "' is currently OCCUPIED.");
+        }
+        return ServiceResult.success(slot);
+    }
 
+    // === NEW: Check slot availability for a specific date ===
+    public ServiceResult<HangarSlot> checkSlotByCodeForDate(String slotCode, LocalDate date) {
+        HangarSlot slot = dao.findBySlotCode(slotCode);
         if (slot == null) {
             return ServiceResult.failure("Slot '" + slotCode + "' does not exist.");
         }
 
-        if (HangarSlotUtil.isOccupied(slot)) {
-            return ServiceResult.failure(
-                    "Slot '" + slotCode + "' is currently OCCUPIED."
-            );
-        }
+        ReservationDAO resDAO = new ReservationDAO();
+        boolean occupied = resDAO.findAll().stream()
+                .anyMatch(r -> r.getHangarSlot().equalsIgnoreCase(slotCode)
+                        && r.getStatus().equals(Reservation.STATUS_ACTIVE)
+                        && !r.getEndDate().isBefore(date)
+                        && !r.getStartDate().isAfter(date));
 
+        if (occupied) {
+            return ServiceResult.failure("Slot '" + slotCode + "' is OCCUPIED on " + date);
+        }
         return ServiceResult.success(slot);
     }
 

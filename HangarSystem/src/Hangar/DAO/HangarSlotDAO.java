@@ -43,7 +43,6 @@ public class HangarSlotDAO {
         try (Connection conn = getConnection();
              Statement stmt  = conn.createStatement()) {
             stmt.execute(SQL_CREATE_TABLE);
-            // Insert default slots only if table is empty
             if (findAll().isEmpty()) {
                 insertDefaultSlots();
             }
@@ -150,6 +149,20 @@ public class HangarSlotDAO {
             System.err.println("  [DB ERROR] findByHangarAndStatus: " + e.getMessage());
         }
         return list;
+    }
+
+    // === NEW: Update slot status by slot code ===
+    public boolean updateStatusBySlotCode(String slotCode, String status) {
+        String sql = "UPDATE hangar_slots SET status = ? WHERE UPPER(slot_code) = UPPER(?)";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, status);
+            ps.setString(2, slotCode);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.err.println("  [DB ERROR] updateStatusBySlotCode: " + e.getMessage());
+            return false;
+        }
     }
 
     private HangarSlot mapRow(ResultSet rs) throws SQLException {

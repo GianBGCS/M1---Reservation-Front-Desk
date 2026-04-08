@@ -19,10 +19,23 @@ public class ReservationService {
     private static final int NO_EXCLUDE_ID = 0;
     private final ReservationDAO dao;
     private final CustomerDAO customerDAO = new CustomerDAO();
+    private final HangarSlotDAO slotDAO = new HangarSlotDAO();
     private final Random random = new Random();
 
     public ReservationService() {
         this.dao = new ReservationDAO();
+    }
+
+    // === Helper: refresh a slot's status based on active reservations overlapping today ===
+    private void refreshSlotStatus(String slotCode) {
+        LocalDate today = LocalDate.now();
+        boolean occupied = dao.findAll().stream()
+                .anyMatch(r -> r.getHangarSlot().equalsIgnoreCase(slotCode)
+                        && r.getStatus().equals(Reservation.STATUS_ACTIVE)
+                        && !r.getEndDate().isBefore(today)
+                        && !r.getStartDate().isAfter(today));
+        String newStatus = occupied ? HangarSlot.STATUS_OCCUPIED : HangarSlot.STATUS_AVAILABLE;
+        slotDAO.updateStatusBySlotCode(slotCode, newStatus);
     }
 
     public ServiceResult createReservation(
@@ -56,7 +69,6 @@ public class ReservationService {
         if (customer != null) {
             customerName = customer.getName();
         } else {
-            // Create a new customer with a random ID (10000-99999)
             int newId = 10000 + random.nextInt(90000);
             Customer newCustomer = new Customer.Builder()
                     .setId(newId)
@@ -73,18 +85,17 @@ public class ReservationService {
         int customerId = customer.getId();
         Reservation existing = dao.findById(customerId);
 
-        // If a reservation already exists with this customer ID
         if (existing != null) {
             if (existing.getStatus().equals(Reservation.STATUS_ACTIVE)) {
                 return ServiceResult.failure("Customer already has an active reservation (ID " + customerId + ").");
             } else if (existing.getStatus().equals(Reservation.STATUS_CANCELLED)) {
-                // Reactivate the cancelled reservation with new details
                 existing.setAircraftTailNumber(aircraftTailNumber);
                 existing.setHangarSlot(hangarSlot);
                 existing.setStartDate(startDate);
                 existing.setEndDate(endDate);
                 existing.setStatus(Reservation.STATUS_ACTIVE);
                 if (dao.update(existing)) {
+                    refreshSlotStatus(hangarSlot);
                     return ServiceResult.success(existing);
                 } else {
                     return ServiceResult.failure("Database error: could not reactivate existing reservation.");
@@ -92,7 +103,6 @@ public class ReservationService {
             }
         }
 
-        // No existing reservation – create a new one with ID = customerId
         Reservation reservation = new Reservation.Builder()
                 .reservationId(customerId)
                 .customerName(customerName)
@@ -106,6 +116,7 @@ public class ReservationService {
         if (!dao.insert(reservation))
             return ServiceResult.failure("Database error: reservation could not be saved.");
 
+        refreshSlotStatus(hangarSlot);
         return ServiceResult.success(reservation);
     }
 
@@ -120,6 +131,7 @@ public class ReservationService {
             return ServiceResult.failure("Cannot cancel: the aircraft's start date has already passed.");
 
         int customerId = reservationId;
+        String slotCode = existing.getHangarSlot();
 
         if (!dao.delete(reservationId))
             return ServiceResult.failure("Database error: could not delete reservation.");
@@ -127,6 +139,7 @@ public class ReservationService {
         if (!customerDAO.delete(customerId))
             return ServiceResult.failure("Reservation deleted, but failed to delete customer. Please contact support.");
 
+        refreshSlotStatus(slotCode);
         return ServiceResult.success(existing);
     }
 
@@ -156,6 +169,7 @@ public class ReservationService {
                     "Slot " + newHangarSlot + " is already booked for those dates.",
                     findSuitableSlots(wingspan, length, newStartDate, newEndDate));
 
+        String oldSlot = existing.getHangarSlot();
         existing.setAircraftTailNumber(newTailNumber);
         existing.setHangarSlot(newHangarSlot);
         existing.setStartDate(newStartDate);
@@ -164,6 +178,8 @@ public class ReservationService {
         if (!dao.update(existing))
             return ServiceResult.failure("Database error: reservation could not be updated.");
 
+        refreshSlotStatus(oldSlot);
+        refreshSlotStatus(newHangarSlot);
         return ServiceResult.success(existing);
     }
 

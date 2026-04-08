@@ -22,7 +22,20 @@ public class FrontDeskService {
 
     private final ReservationDAO resDAO = new ReservationDAO();
     private final CustomerDAO customerDAO = new CustomerDAO();
+    private final HangarSlotDAO slotDAO = new HangarSlotDAO();
     private final Random random = new Random();
+
+    // === Helper: refresh slot status based on active reservations overlapping today ===
+    private void refreshSlotStatus(String slotCode) {
+        LocalDate today = LocalDate.now();
+        boolean occupied = resDAO.findAll().stream()
+                .anyMatch(r -> r.getHangarSlot().equalsIgnoreCase(slotCode)
+                        && r.getStatus().equals(Reservation.STATUS_ACTIVE)
+                        && !r.getEndDate().isBefore(today)
+                        && !r.getStartDate().isAfter(today));
+        String newStatus = occupied ? HangarSlot.STATUS_OCCUPIED : HangarSlot.STATUS_AVAILABLE;
+        slotDAO.updateStatusBySlotCode(slotCode, newStatus);
+    }
 
     public FrontDesk validateTailNumber(String tailNum) {
         if (tailNum == null || tailNum.trim().isEmpty()) return null;
@@ -42,7 +55,14 @@ public class FrontDeskService {
     }
 
     public boolean performCheckOut(int id) {
-        return id > 0 && resDAO.delete(id);
+        Reservation res = resDAO.findById(id);
+        if (res == null) return false;
+        String slotCode = res.getHangarSlot();
+        boolean deleted = resDAO.delete(id);
+        if (deleted) {
+            refreshSlotStatus(slotCode);
+        }
+        return deleted;
     }
 
     public FrontDesk findWalkInAircraft(String tailNum) {
@@ -93,12 +113,10 @@ public class FrontDeskService {
         int customerId = customer.getId();
         Reservation existing = resDAO.findById(customerId);
 
-        // If a reservation already exists with this customer ID
         if (existing != null) {
             if (existing.getStatus().equals(Reservation.STATUS_ACTIVE)) {
                 return WalkInResult.failure("Customer already has an active reservation (ID " + customerId + ").");
             } else if (existing.getStatus().equals(Reservation.STATUS_CANCELLED)) {
-                // Reactivate the cancelled reservation with new details
                 existing.setAircraftTailNumber(tailNumber);
                 existing.setHangarSlot(availableSlot);
                 existing.setStartDate(startDate);
@@ -107,6 +125,7 @@ public class FrontDeskService {
                 if (!resDAO.update(existing)) {
                     return WalkInResult.failure("Database error: could not reactivate existing reservation.");
                 }
+                refreshSlotStatus(availableSlot);
                 FrontDesk result = new FrontDesk.Builder()
                         .tail(tailNumber)
                         .name(customerName)
@@ -124,7 +143,6 @@ public class FrontDeskService {
             }
         }
 
-        // No existing reservation – create a new one with ID = customerId
         Reservation reservation = new Reservation.Builder()
                 .reservationId(customerId)
                 .customerName(customerName)
@@ -138,6 +156,8 @@ public class FrontDeskService {
         if (!resDAO.save(reservation)) {
             return WalkInResult.failure("Database error: Walk-In reservation could not be saved.");
         }
+
+        refreshSlotStatus(availableSlot);
 
         FrontDesk result = new FrontDesk.Builder()
                 .tail(tailNumber)
@@ -166,7 +186,6 @@ public class FrontDeskService {
         return null;
     }
 
-    // ── Result wrapper (unchanged) ─────────────────────────────────────────
     public static class WalkInResult {
         private final boolean  success;
         private final String   message;
