@@ -6,6 +6,7 @@ import DAO.ReservationDAO;
 import Model.Customer;
 import Model.FrontDesk;
 import Model.HangarSlot;
+import Model.Invoice;
 import Model.Reservation;
 import Util.ReservationUtil;
 
@@ -23,9 +24,10 @@ public class FrontDeskService {
     private final ReservationDAO resDAO = new ReservationDAO();
     private final CustomerDAO customerDAO = new CustomerDAO();
     private final HangarSlotDAO slotDAO = new HangarSlotDAO();
+    private final BillingService billingService = new BillingService();
     private final Random random = new Random();
 
-    // === Helper: refresh slot status based on active reservations overlapping today ===
+    // Helper: refresh slot status based on active reservations overlapping today
     private void refreshSlotStatus(String slotCode) {
         LocalDate today = LocalDate.now();
         boolean occupied = resDAO.findAll().stream()
@@ -184,6 +186,26 @@ public class FrontDeskService {
             if (fits && available) return slot.getSlotCode();
         }
         return null;
+    }
+
+    // ── New methods for check‑out invoice integration ────────────────────────
+    public Invoice getInvoiceForCheckOut(int reservationId) {
+        return billingService.getInvoiceForCheckOut(reservationId);
+    }
+
+    public boolean recordCheckOutPayment(int invoiceId, double amount, String method) {
+        return billingService.recordPayment(invoiceId, amount, method);
+    }
+
+    public boolean finalizeCheckOut(int reservationId) {
+        Reservation res = resDAO.findById(reservationId);
+        if (res == null) return false;
+        String slotCode = res.getHangarSlot();
+        boolean deleted = resDAO.delete(reservationId);
+        if (deleted) {
+            refreshSlotStatus(slotCode);
+        }
+        return deleted;
     }
 
     public static class WalkInResult {
