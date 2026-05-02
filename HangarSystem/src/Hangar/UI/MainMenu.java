@@ -41,6 +41,7 @@ public class MainMenu {
                     case 3 -> new UI.FrontDeskUI(scanner, username, role).start();
                     case 4 -> new UI.HangarSlotUI(scanner, username, role).run();
                     case 5 -> manageUsers();
+                    case 6 -> new UI.BillingUI(scanner, username, role).start();
                     case 0 -> { System.out.println("Logging out..."); return; }
                     default -> System.out.println("[ERROR] Invalid option.");
                 }
@@ -49,6 +50,7 @@ public class MainMenu {
                     case 1 -> new UI.CustomerUI(scanner, username, role).start();
                     case 2 -> new UI.ReservationUI(scanner, username, role).run();
                     case 3 -> new UI.FrontDeskUI(scanner, username, role).start();
+                    case 4 -> new UI.BillingUI(scanner, username, role).start();
                     case 0 -> { System.out.println("Logging out..."); return; }
                     default -> System.out.println("[ERROR] Invalid option.");
                 }
@@ -56,7 +58,6 @@ public class MainMenu {
         }
     }
 
-    // ── Menu print ─────────────────────────────────────────────────────────────
     private void printMenu() {
         System.out.println("\n========================================");
         System.out.println("   Aviation Hangar System");
@@ -70,12 +71,14 @@ public class MainMenu {
             System.out.println("  ---- Admin Only ----------------");
             System.out.println("  4. Hangar and Slot Configuration");
             System.out.println("  5. User Management");
+            System.out.println("  6. Billing and Invoices");
+        } else {
+            System.out.println("  4. Billing and Invoices");
         }
         System.out.println("  0. Logout");
         System.out.println("========================================");
     }
 
-    // ── User Management ────────────────────────────────────────────────────────
     private void manageUsers() {
         while (true) {
             System.out.println("\n========================================");
@@ -121,7 +124,6 @@ public class MainMenu {
         UserDAO userDAO = new UserDAO();
         System.out.println("\n--- Add New User ---");
 
-        // Username
         String username;
         while (true) {
             System.out.print("  Enter username (0 to cancel): ");
@@ -135,7 +137,6 @@ public class MainMenu {
             break;
         }
 
-        // Password
         String password;
         while (true) {
             System.out.print("  Enter password        : ");
@@ -147,7 +148,6 @@ public class MainMenu {
             break;
         }
 
-        // Role
         System.out.print("  Grant Admin access? (Y/N): ");
         boolean isAdmin = scanner.nextLine().trim().equalsIgnoreCase("Y");
 
