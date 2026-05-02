@@ -2,20 +2,18 @@ package Service;
 
 import DAO.*;
 import Model.*;
-import Utils.PaymentFramework;
+import Util.PaymentFramework;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 public class BillingService {
     private final InvoiceDAO invoiceDAO = new InvoiceDAO();
+    private final PaymentDAO paymentDAO = new PaymentDAO();
     private final HangarPricingDAO pricingDAO = new HangarPricingDAO();
 
-    /**
-     * Create an invoice for a reservation when the deposit is paid.
-     * Only the invoice table is written here – payment record will be added later.
-     */
     public int createInvoiceForReservation(Reservation reservation, double depositAmount, String paymentMethod) {
         HangarSlot slot = new HangarSlotDAO().findBySlotCode(reservation.getHangarSlot());
         double dailyRate = pricingDAO.getDailyRate(slot.getCategory());
@@ -41,12 +39,22 @@ public class BillingService {
         int invId = invoiceDAO.insert(inv);
         if (invId == -1) return -1;
 
-        // Print receipt (no DB payment record yet)
+        // Record the deposit payment
+        Payment p = new Payment.Builder()
+                .invoiceId(invId)
+                .amount(depositAmount)
+                .paymentDate(LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE))
+                .method(paymentMethod)
+                .reference("DEPOSIT")
+                .build();
+        paymentDAO.insert(p);
+
+        // Print receipt
         PaymentFramework processor = new CashPayment(reservation.getCustomerName(), depositAmount, 0);
         processor.processInvoice();
 
         return invId;
     }
 
-    // Additional methods (getInvoiceForCheckOut, recordPayment, etc.) will be added in later commits.
+    // recordPayment and other methods will be added in later commits.
 }
