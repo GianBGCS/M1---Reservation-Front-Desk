@@ -1,6 +1,7 @@
-package UI;
+package src.Hangar.UI;
 
 import Model.FrontDesk;
+import Model.Invoice;
 import Service.FrontDeskService;
 import Service.FrontDeskService.WalkInResult;
 import Util.FrontDeskUtil;
@@ -40,7 +41,7 @@ public class FrontDeskUI {
 
             switch (choice) {
                 case "1" -> handleProcess("CHECK IN");
-                case "2" -> handleProcess("CHECK OUT");
+                case "2" -> handleCheckOut();
                 case "3" -> handleWalkIn();
                 case "0" -> running = false;
                 default  -> System.out.println("\n[!] Invalid choice.");
@@ -75,6 +76,66 @@ public class FrontDeskUI {
         FrontDeskUtil.pause(scanner);
     }
 
+    private void handleCheckOut() {
+        FrontDeskUtil.printHeader(currentUser, currentRole);
+        System.out.print("Enter Tail Number: ");
+        String tailNum = scanner.nextLine().trim();
+
+        FrontDesk res = service.validateTailNumber(tailNum);
+        if (res == null) {
+            System.out.println("\n[!] No record found for Tail Number [" + tailNum + "].");
+            FrontDeskUtil.pause(scanner);
+            return;
+        }
+
+        FrontDeskUtil.printDetails("CHECK OUT", res);
+        System.out.print("Confirm Check-Out for RES-" + res.getReservationId() + "? (Y/N): ");
+        if (!FrontDeskUtil.isConfirmed(scanner.nextLine())) {
+            System.out.println("Cancelled.");
+            FrontDeskUtil.pause(scanner);
+            return;
+        }
+
+        // Generate invoice
+        Invoice invoice = service.getInvoiceForCheckOut(res.getReservationId());
+        if (invoice == null) {
+            System.out.println("\n[!] Failed to generate invoice.");
+            FrontDeskUtil.pause(scanner);
+            return;
+        }
+
+        System.out.println("\nINVOICE DETAILS:");
+        System.out.println(invoice);
+        if (invoice.getBalance() > 0) {
+            System.out.printf("Outstanding balance: %.2f%n", invoice.getBalance());
+            while (invoice.getBalance() > 0) {
+                System.out.print("Record payment? (Enter amount, or 0 to skip): ");
+                String amtStr = scanner.nextLine().trim();
+                if (amtStr.equals("0")) break;
+                try {
+                    double amt = Double.parseDouble(amtStr);
+                    if (amt <= 0) { System.out.println("[!] Amount must be positive."); continue; }
+                    System.out.print("Payment method: ");
+                    String method = scanner.nextLine().trim();
+                    boolean paid = service.recordCheckOutPayment(invoice.getId(), amt, method);
+                    if (paid) {
+                        invoice = service.getInvoiceForCheckOut(res.getReservationId());
+                        System.out.println("\nPayment recorded. Updated invoice:");
+                        System.out.println(invoice);
+                    } else {
+                        System.out.println("[!] Payment recording failed.");
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("[!] Invalid amount.");
+                }
+            }
+        }
+
+        service.finalizeCheckOut(res.getReservationId());
+        System.out.println("\n>>> CHECK-OUT COMPLETED. Invoice INV-" + invoice.getId() + " closed.");
+        FrontDeskUtil.pause(scanner);
+    }
+
     private void handleWalkIn() {
         FrontDeskUtil.printHeader(currentUser, currentRole);
         System.out.println("WALK-IN RESERVATION");
@@ -105,7 +166,6 @@ public class FrontDeskUI {
             System.out.printf("  Owner     : %s%n", existing.getCustomerName());
 
             customerName  = existing.getCustomerName();
-            // Ask for phone/email (may be new or existing)
             phone = promptPhone("  Enter customer phone (11 digits) : ");
             if (phone == null) { printCancelled(); return; }
             email = promptEmail("  Enter customer email (@gmail.com): ");
@@ -169,7 +229,6 @@ public class FrontDeskUI {
         String checkInTime = java.time.LocalDateTime.now()
                 .format(FrontDeskService.DATETIME_FORMAT);
 
-        // Pass phone and email to service
         WalkInResult result = service.processWalkIn(
                 tailNumber, customerName, phone, email, aircraftModel,
                 wingspan, length, checkInTime, estimatedDeparture);
@@ -214,7 +273,6 @@ public class FrontDeskUI {
         }
     }
 
-    // === NEW: Phone and email input helpers ===
     private String promptPhone(String prompt) {
         while (true) {
             System.out.print(prompt);
