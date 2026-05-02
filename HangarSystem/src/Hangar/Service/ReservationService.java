@@ -1,6 +1,7 @@
 package Service;
 
 import DAO.CustomerDAO;
+import DAO.HangarPricingDAO;
 import DAO.HangarSlotDAO;
 import DAO.ReservationDAO;
 import Model.Customer;
@@ -20,13 +21,14 @@ public class ReservationService {
     private final ReservationDAO dao;
     private final CustomerDAO customerDAO = new CustomerDAO();
     private final HangarSlotDAO slotDAO = new HangarSlotDAO();
+    private final BillingService billingService = new BillingService();
     private final Random random = new Random();
 
     public ReservationService() {
         this.dao = new ReservationDAO();
     }
 
-    // === Helper: refresh a slot's status based on active reservations overlapping today ===
+    // Helper: refresh a slot's status based on active reservations overlapping today
     private void refreshSlotStatus(String slotCode) {
         LocalDate today = LocalDate.now();
         boolean occupied = dao.findAll().stream()
@@ -38,6 +40,7 @@ public class ReservationService {
         slotDAO.updateStatusBySlotCode(slotCode, newStatus);
     }
 
+    // Original createReservation (kept for compatibility, but UI will use the new one)
     public ServiceResult createReservation(
             String    customerName,
             String    phone,
@@ -120,13 +123,107 @@ public class ReservationService {
         return ServiceResult.success(reservation);
     }
 
+    // New method: creates reservation AND invoice with deposit
+    public ServiceResult createReservation(
+            String    customerName,
+            String    phone,
+            String    email,
+            String    aircraftTailNumber,
+            String    hangarSlot,
+            double    wingspan,
+            double    length,
+            LocalDate startDate,
+            LocalDate endDate,
+            double    depositAmount,
+            String    paymentMethod) {
+
+        if (!ReservationUtil.isValidSlot(hangarSlot))
+            return ServiceResult.failure("Hangar slot '" + hangarSlot + "' does not exist.");
+
+        if (!ReservationUtil.doesAircraftFit(hangarSlot, wingspan, length))
+            return ServiceResult.failure(
+                    ReservationUtil.buildSizeMismatchMessage(hangarSlot, wingspan, length),
+                    findSuitableSlots(wingspan, length, startDate, endDate));
+
+        if (dao.hasOverlap(hangarSlot, startDate, endDate, NO_EXCLUDE_ID))
+            return ServiceResult.failure(
+                    "Slot " + hangarSlot + " is already booked for the selected dates.",
+                    findSuitableSlots(wingspan, length, startDate, endDate));
+
+        // --- Handle customer (phone/email) ---
+        Customer customer = customerDAO.findByPhone(phone);
+        if (customer == null) customer = customerDAO.findByEmail(email);
+
+        if (customer != null) {
+            customerName = customer.getName();
+        } else {
+            int newId = 10000 + random.nextInt(90000);
+            Customer newCustomer = new Customer.Builder()
+                    .setId(newId)
+                    .setName(customerName)
+                    .setPhone(phone)
+                    .setEmail(email)
+                    .build();
+            if (!customerDAO.saveCustomer(newCustomer)) {
+                return ServiceResult.failure("Failed to save customer information. Duplicate phone or email?");
+            }
+            customer = newCustomer;
+        }
+
+        int customerId = customer.getId();
+        Reservation existing = dao.findById(customerId);
+
+        if (existing != null) {
+            if (existing.getStatus().equals(Reservation.STATUS_ACTIVE)) {
+                return ServiceResult.failure("Customer already has an active reservation (ID " + customerId + ").");
+            } else if (existing.getStatus().equals(Reservation.STATUS_CANCELLED)) {
+                existing.setAircraftTailNumber(aircraftTailNumber);
+                existing.setHangarSlot(hangarSlot);
+                existing.setStartDate(startDate);
+                existing.setEndDate(endDate);
+                existing.setStatus(Reservation.STATUS_ACTIVE);
+                if (dao.update(existing)) {
+                    refreshSlotStatus(hangarSlot);
+                    int invId = billingService.createInvoiceForReservation(existing, depositAmount, paymentMethod);
+                    if (invId == -1) {
+                        return ServiceResult.failure("Reservation reactivated but invoice creation failed.");
+                    }
+                    return ServiceResult.success(existing);
+                } else {
+                    return ServiceResult.failure("Database error: could not reactivate existing reservation.");
+                }
+            }
+        }
+
+        Reservation reservation = new Reservation.Builder()
+                .reservationId(customerId)
+                .customerName(customerName)
+                .aircraftTailNumber(aircraftTailNumber)
+                .hangarSlot(hangarSlot)
+                .startDate(startDate)
+                .endDate(endDate)
+                .status(Reservation.STATUS_ACTIVE)
+                .build();
+
+        if (!dao.insert(reservation))
+            return ServiceResult.failure("Database error: reservation could not be saved.");
+
+        int invId = billingService.createInvoiceForReservation(reservation, depositAmount, paymentMethod);
+        if (invId == -1) {
+            dao.delete(reservation.getReservationId());
+            return ServiceResult.failure("Failed to create invoice.");
+        }
+
+        refreshSlotStatus(hangarSlot);
+        return ServiceResult.success(reservation);
+    }
+
     public ServiceResult cancelReservation(int reservationId) {
         Reservation existing = dao.findById(reservationId);
         if (existing == null)
             return ServiceResult.failure("Reservation ID " + reservationId + " not found.");
         if (!existing.getStatus().equals(Reservation.STATUS_ACTIVE))
             return ServiceResult.failure("Only ACTIVE reservations can be cancelled.");
-
         if (!LocalDate.now().isBefore(existing.getStartDate()))
             return ServiceResult.failure("Cannot cancel: the aircraft's start date has already passed.");
 
@@ -135,7 +232,6 @@ public class ReservationService {
 
         if (!dao.delete(reservationId))
             return ServiceResult.failure("Database error: could not delete reservation.");
-
         if (!customerDAO.delete(customerId))
             return ServiceResult.failure("Reservation deleted, but failed to delete customer. Please contact support.");
 
