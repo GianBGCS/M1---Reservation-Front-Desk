@@ -14,7 +14,7 @@ public class Invoice {
     private double depositPaid;
     private double additionalPaid;
     private double balance;
-    private String status;
+    private String status;        // PENDING, PARTIAL, PAID
 
     private Invoice() {}
 

@@ -1,4 +1,4 @@
-package src.Hangar.UI;
+package UI;
 
 import Model.FrontDesk;
 import Model.Invoice;

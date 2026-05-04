@@ -12,6 +12,7 @@ public class HangarPricingDAO {
                     "category TEXT PRIMARY KEY, " +
                     "daily_rate REAL NOT NULL)");
 
+            // Insert defaults if empty
             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM hangar_pricing");
             if (rs.next() && rs.getInt(1) == 0) {
                 stmt.execute("INSERT INTO hangar_pricing VALUES ('SMALL', 500)");
@@ -38,6 +39,6 @@ public class HangarPricingDAO {
         } catch (SQLException e) {
             System.err.println("  [DB ERROR] getDailyRate: " + e.getMessage());
         }
-        return 500;
+        return 500; // default fallback
     }
 }

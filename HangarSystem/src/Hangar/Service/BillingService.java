@@ -5,6 +5,7 @@ import Model.*;
 import Util.PaymentFramework;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -48,6 +49,7 @@ public class BillingService {
                 .build();
         paymentDAO.insert(p);
 
+        // Print receipt using the payment framework
         PaymentFramework processor = new CashPayment(reservation.getCustomerName(), depositAmount, 0);
         processor.processInvoice();
 

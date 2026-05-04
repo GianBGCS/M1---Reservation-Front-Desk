@@ -1,4 +1,4 @@
-package Utils;
+package Util;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -28,6 +28,7 @@ public abstract class PaymentFramework {
         this.transactionId = generateTransactionId();
     }
 
+    // Template method
     public void processInvoice() {
         printSectionHeader("INITIATING TRANSACTION");
         System.out.println(" [Step 1] Validating payment...");

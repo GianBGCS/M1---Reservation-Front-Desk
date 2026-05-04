@@ -7,7 +7,9 @@ import Util.ReservationUtil;
 import Util.ReservationUtil.MenuAction;
 import Util.ReservationUtil.ServiceResult;
 
+import DAO.HangarPricingDAO;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Scanner;
 import java.util.regex.Pattern;
@@ -62,7 +64,6 @@ public class ReservationUI {
         String customerName = promptString("  Enter customer name        : ");
         if (customerName == null) { printCancelled(); return; }
 
-        // --- NEW: phone and email prompts ---
         String phone = promptPhone("  Enter customer phone (11 digits) : ");
         if (phone == null) { printCancelled(); return; }
 
@@ -90,10 +91,26 @@ public class ReservationUI {
         LocalDate endDate = promptEndDate(startDate);
         if (endDate == null) { printCancelled(); return; }
 
-        // Pass phone and email to service
+        // ── Deposit and invoice generation ──
+        HangarSlot slot = ReservationUtil.findSlotByCode(hangarSlot);
+        double dailyRate = new HangarPricingDAO().getDailyRate(slot.getCategory());
+        long days = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        double estimatedTotal = days * dailyRate;
+        System.out.printf("\n  Estimated total for %d day(s): %.2f%n", days, estimatedTotal);
+        System.out.print("  Confirm deposit payment of full amount? (Y/N): ");
+        if (!ReservationUtil.isConfirmed(scanner.nextLine().trim())) {
+            System.out.println("\n  Reservation cancelled – deposit not paid.");
+            promptEnterToContinue();
+            return;
+        }
+        System.out.print("  Payment method (CASH/CARD): ");
+        String paymentMethod = scanner.nextLine().trim().toUpperCase();
+
+        // Call service with deposit
         ServiceResult result = service.createReservation(
                 customerName, phone, email, tailNumber, hangarSlot,
-                wingspan, length, startDate, endDate);
+                wingspan, length, startDate, endDate,
+                estimatedTotal, paymentMethod);
 
         printResult("Reservation created successfully!", result);
         promptEnterToContinue();
@@ -414,7 +431,6 @@ public class ReservationUI {
         return input;
     }
 
-    // === NEW: Phone and email input helpers ===
     private String promptPhone(String prompt) {
         while (true) {
             System.out.print(prompt);

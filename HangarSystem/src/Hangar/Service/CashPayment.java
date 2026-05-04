@@ -1,6 +1,6 @@
 package Service;
 
-import Utils.PaymentFramework;
+import Util.PaymentFramework;
 
 public class CashPayment extends PaymentFramework {
 
@@ -10,6 +10,7 @@ public class CashPayment extends PaymentFramework {
 
     @Override
     protected boolean validatePayment() {
+        // In a real system you would check cash authenticity, etc.
         return true;
     }
 

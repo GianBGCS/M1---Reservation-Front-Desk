@@ -1,3 +1,4 @@
+import DAO.HangarPricingDAO;
 import DAO.UserDAO;
 import Model.User;
 import Service.AuthService;
@@ -9,6 +10,9 @@ public class Main {
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
+
+        // Ensure pricing table is created (with default rates)
+        new HangarPricingDAO();
 
         UserDAO     userDAO     = new UserDAO();
         AuthService authService = new AuthService(userDAO);
