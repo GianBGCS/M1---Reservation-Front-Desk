@@ -1,5 +1,7 @@
 package UI;
 
+import DAO.HangarPricingDAO;
+import DAO.ReservationDAO;
 import Model.HangarSlot;
 import Model.Reservation;
 import Service.ReservationService;
@@ -7,12 +9,14 @@ import Util.ReservationUtil;
 import Util.ReservationUtil.MenuAction;
 import Util.ReservationUtil.ServiceResult;
 
-import DAO.HangarPricingDAO;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class ReservationUI {
 
@@ -91,26 +95,32 @@ public class ReservationUI {
         LocalDate endDate = promptEndDate(startDate);
         if (endDate == null) { printCancelled(); return; }
 
-        // ── Deposit and invoice generation ──
+        // ── VAT‑inclusive pricing ─────────────────────────────────────────────
         HangarSlot slot = ReservationUtil.findSlotByCode(hangarSlot);
         double dailyRate = new HangarPricingDAO().getDailyRate(slot.getCategory());
         long days = ChronoUnit.DAYS.between(startDate, endDate) + 1;
-        double estimatedTotal = days * dailyRate;
-        System.out.printf("\n  Estimated total for %d day(s): %.2f%n", days, estimatedTotal);
-        System.out.print("  Confirm deposit payment of full amount? (Y/N): ");
-        if (!ReservationUtil.isConfirmed(scanner.nextLine().trim())) {
-            System.out.println("\n  Reservation cancelled – deposit not paid.");
-            promptEnterToContinue();
-            return;
-        }
+
+        double base = days * dailyRate;
+        double vat = base * 0.12;
+        double total = base + vat;
+
+        System.out.printf("\n  Pricing Breakdown:\n");
+        System.out.printf("    Base amount      : %-10.2f\n", base);
+        System.out.printf("    VAT (12%%)        : %-10.2f\n", vat);
+        System.out.printf("    TOTAL (incl VAT) : %-10.2f\n", total);
+        System.out.println("  A deposit is required now; the remaining balance will be collected at check‑in.");
+
+        double depositAmount = promptDeposit(total);   // max = total
+        if (depositAmount < 0) { printCancelled(); return; }
+
         System.out.print("  Payment method (CASH/CARD): ");
         String paymentMethod = scanner.nextLine().trim().toUpperCase();
 
-        // Call service with deposit
+        // Call service with VAT‑inclusive total and partial deposit
         ServiceResult result = service.createReservation(
                 customerName, phone, email, tailNumber, hangarSlot,
                 wingspan, length, startDate, endDate,
-                estimatedTotal, paymentMethod);
+                depositAmount, paymentMethod);
 
         printResult("Reservation created successfully!", result);
         promptEnterToContinue();
@@ -275,14 +285,40 @@ public class ReservationUI {
         System.out.println();
     }
 
+    /**
+     * Shows slot table with size limits, daily rate and all active/upcoming
+     * reservation dates (any reservation that ends today or later).
+     */
     private void printSlotTable() {
         System.out.println("\n" + ReservationUtil.DIVIDER);
-        System.out.println("  HANGAR SLOTS — SIZE LIMITS");
+        System.out.println("  HANGAR SLOTS — SIZE LIMITS, PRICING & RESERVATIONS");
         System.out.println(ReservationUtil.DIVIDER);
+        HangarPricingDAO pricingDAO = new HangarPricingDAO();
+        Map<String, String> bookedDates = new HashMap<>();
+        LocalDate today = LocalDate.now();
+
+        // Get all active reservations that have not yet ended (today or in the future)
+        List<Reservation> activeRes = new ReservationDAO().findAll().stream()
+                .filter(r -> Reservation.STATUS_ACTIVE.equals(r.getStatus()))
+                .filter(r -> !r.getEndDate().isBefore(today))
+                .collect(Collectors.toList());
+
+        for (Reservation r : activeRes) {
+            bookedDates.put(r.getHangarSlot(),
+                    r.getStartDate().format(Reservation.DATE_FORMAT) + " to " +
+                            r.getEndDate().format(Reservation.DATE_FORMAT));
+        }
+
         for (HangarSlot slot : ReservationUtil.getAllSlots()) {
-            System.out.printf("  Slot %-3s | Category: %-7s | Max Wingspan: %5.1f m | Max Length: %5.1f m%n",
+            double rate = pricingDAO.getDailyRate(slot.getCategory());
+            String reserveInfo = "";
+            String dates = bookedDates.get(slot.getSlotCode());
+            if (dates != null) {
+                reserveInfo = " [RESERVED: " + dates + "]";
+            }
+            System.out.printf("  Slot %-3s | Category: %-7s | Max Wingspan: %5.1f m | Max Length: %5.1f m | Daily Rate: %6.2f%s%n",
                     slot.getSlotCode(), slot.getCategory(),
-                    slot.getMaxWingspan(), slot.getMaxLength());
+                    slot.getMaxWingspan(), slot.getMaxLength(), rate, reserveInfo);
         }
         System.out.println(ReservationUtil.DIVIDER);
         System.out.println();
@@ -323,7 +359,7 @@ public class ReservationUI {
         System.out.println("\n  Cancelled. Returning to menu...\n");
     }
 
-    // ─── Input helpers (including new phone/email) ───────────────────────────
+    // ─── Input helpers (including new phone/email and deposit) ────────────
     private String promptString(String prompt) {
         while (true) {
             System.out.print(prompt);
@@ -448,6 +484,23 @@ public class ReservationUI {
             if (ReservationUtil.isCancelled(input)) return null;
             if (EMAIL_PATTERN.matcher(input).matches()) return input;
             System.out.println("  [!] Email must be a valid @gmail.com address. Enter 0 to cancel.");
+        }
+    }
+
+    /** New helper: prompts for a deposit amount between 0 and maxAmount. Returns -1 if cancelled. */
+    private double promptDeposit(double maxAmount) {
+        while (true) {
+            System.out.printf("  Enter deposit amount (max %.2f, or 0 to cancel): ", maxAmount);
+            String input = scanner.nextLine().trim();
+            if (ReservationUtil.isCancelled(input)) return -1;
+            try {
+                double amt = Double.parseDouble(input);
+                if (amt >= 0 && amt <= maxAmount) return amt;
+                if (amt < 0) System.out.println("  [!] Amount must be positive.");
+                else System.out.println("  [!] Deposit cannot exceed the total amount.");
+            } catch (NumberFormatException e) {
+                System.out.println("  [!] Invalid number.");
+            }
         }
     }
 
