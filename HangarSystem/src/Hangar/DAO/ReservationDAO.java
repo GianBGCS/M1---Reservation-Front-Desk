@@ -37,8 +37,8 @@ public class ReservationDAO {
                     "WHERE id=?";
 
     private static final String SQL_INSERT =
-            "INSERT INTO reservations (id, customer_name, aircraft_tail_number, hangar_slot, start_date, end_date, status) " +
-                    "VALUES (?,?,?,?,?,?,?)";
+            "INSERT INTO reservations (id, customer_name, aircraft_tail_number, hangar_slot, start_date, end_date, status, discount_percent) " +
+                    "VALUES (?,?,?,?,?,?,?,?)";
 
     private static final String SQL_EXISTS_BY_ID =
             "SELECT 1 FROM reservations WHERE id = ?";
@@ -47,14 +47,22 @@ public class ReservationDAO {
     public ReservationDAO() {
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
+            // Create table if not exists (without discount_percent)
             stmt.execute("CREATE TABLE IF NOT EXISTS reservations (" +
-                    "id                   INTEGER PRIMARY KEY, " +   // removed AUTOINCREMENT
+                    "id                   INTEGER PRIMARY KEY, " +
                     "customer_name        TEXT    NOT NULL, " +
                     "aircraft_tail_number TEXT    NOT NULL, " +
                     "hangar_slot          TEXT    NOT NULL, " +
                     "start_date           TEXT    NOT NULL, " +
                     "end_date             TEXT    NOT NULL, " +
                     "status               TEXT    NOT NULL DEFAULT 'ACTIVE');");
+
+            // Add discount_percent column if it doesn't exist (safe regardless of table creation)
+            try {
+                stmt.execute("ALTER TABLE reservations ADD COLUMN discount_percent REAL NOT NULL DEFAULT 0.0");
+            } catch (SQLException e) {
+                // Column already exists, ignore
+            }
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
@@ -73,6 +81,7 @@ public class ReservationDAO {
                 .startDate(LocalDate.parse(rs.getString("start_date"), Reservation.DATE_FORMAT))
                 .endDate(LocalDate.parse(rs.getString("end_date"),     Reservation.DATE_FORMAT))
                 .status(rs.getString("status"))
+                .discountPercent(rs.getDouble("discount_percent"))   // NEW
                 .build();
     }
 
@@ -88,6 +97,7 @@ public class ReservationDAO {
             ps.setString(5, r.getStartDate().format(Reservation.DATE_FORMAT));
             ps.setString(6, r.getEndDate().format(Reservation.DATE_FORMAT));
             ps.setString(7, r.getStatus());
+            ps.setDouble(8, r.getDiscountPercent());   // NEW
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             System.err.println("  [DB ERROR] insert: " + e.getMessage());

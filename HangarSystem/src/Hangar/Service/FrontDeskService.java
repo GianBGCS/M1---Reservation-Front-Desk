@@ -71,10 +71,12 @@ public class FrontDeskService {
         return validateTailNumber(tailNum);
     }
 
+    // Modified to accept discountPercent for membership
     public WalkInResult processWalkIn(String tailNumber, String customerName,
                                       String phone, String email,
                                       String aircraftModel, double wingspan, double length,
-                                      String checkInTime, String estimatedDeparture) {
+                                      String checkInTime, String estimatedDeparture,
+                                      double discountPercent) {          // NEW parameter
 
         LocalDateTime checkInDT   = LocalDateTime.parse(checkInTime,        DATETIME_FORMAT);
         LocalDateTime departureDT = LocalDateTime.parse(estimatedDeparture, DATETIME_FORMAT);
@@ -124,6 +126,7 @@ public class FrontDeskService {
                 existing.setStartDate(startDate);
                 existing.setEndDate(endDate);
                 existing.setStatus(Reservation.STATUS_ACTIVE);
+                existing.setDiscountPercent(discountPercent);   // apply discount
                 if (!resDAO.update(existing)) {
                     return WalkInResult.failure("Database error: could not reactivate existing reservation.");
                 }
@@ -153,6 +156,7 @@ public class FrontDeskService {
                 .startDate(startDate)
                 .endDate(endDate)
                 .status(Reservation.STATUS_ACTIVE)
+                .discountPercent(discountPercent)       // store discount
                 .build();
 
         if (!resDAO.save(reservation)) {

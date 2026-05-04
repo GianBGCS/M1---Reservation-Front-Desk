@@ -95,32 +95,41 @@ public class ReservationUI {
         LocalDate endDate = promptEndDate(startDate);
         if (endDate == null) { printCancelled(); return; }
 
-        // ── VAT‑inclusive pricing ─────────────────────────────────────────────
+        // ── Membership tier prompt ─────────────────────────────────────────────
+        double discountPercent = promptMembershipTier();
+        if (discountPercent < 0) { printCancelled(); return; }   // -1 means cancel
+
+        // ── VAT‑inclusive pricing with discount ───────────────────────────────
         HangarSlot slot = ReservationUtil.findSlotByCode(hangarSlot);
         double dailyRate = new HangarPricingDAO().getDailyRate(slot.getCategory());
         long days = ChronoUnit.DAYS.between(startDate, endDate) + 1;
 
         double base = days * dailyRate;
-        double vat = base * 0.12;
-        double total = base + vat;
+        double discountAmount = base * discountPercent / 100.0;
+        double afterDiscount = base - discountAmount;
+        double vat = afterDiscount * 0.12;
+        double total = afterDiscount + vat;
 
         System.out.printf("\n  Pricing Breakdown:\n");
         System.out.printf("    Base amount      : %-10.2f\n", base);
+        if (discountPercent > 0) {
+            System.out.printf("    Discount (%5.1f%%) : %-10.2f\n", discountPercent, discountAmount);
+            System.out.printf("    After Discount   : %-10.2f\n", afterDiscount);
+        }
         System.out.printf("    VAT (12%%)        : %-10.2f\n", vat);
         System.out.printf("    TOTAL (incl VAT) : %-10.2f\n", total);
         System.out.println("  A deposit is required now; the remaining balance will be collected at check‑in.");
 
-        double depositAmount = promptDeposit(total);   // max = total
+        double depositAmount = promptDeposit(total);
         if (depositAmount < 0) { printCancelled(); return; }
 
         System.out.print("  Payment method (CASH/CARD): ");
         String paymentMethod = scanner.nextLine().trim().toUpperCase();
 
-        // Call service with VAT‑inclusive total and partial deposit
         ServiceResult result = service.createReservation(
                 customerName, phone, email, tailNumber, hangarSlot,
                 wingspan, length, startDate, endDate,
-                depositAmount, paymentMethod);
+                depositAmount, paymentMethod, discountPercent);
 
         printResult("Reservation created successfully!", result);
         promptEnterToContinue();
@@ -324,21 +333,6 @@ public class ReservationUI {
         System.out.println();
     }
 
-    private void printConfirmation(String customerName, String tailNumber,
-                                   double wingspan, double length, String hangarSlot,
-                                   LocalDate startDate, LocalDate endDate) {
-        System.out.println("\n" + ReservationUtil.DIVIDER);
-        System.out.println("  CONFIRM RESERVATION DETAILS");
-        System.out.println(ReservationUtil.DIVIDER);
-        System.out.printf("  Customer Name    : %s%n",              customerName);
-        System.out.printf("  Aircraft Tail No : %s%n",              tailNumber);
-        System.out.printf("  Wingspan / Length: %.1f m / %.1f m%n", wingspan, length);
-        System.out.printf("  Hangar Slot      : %s%n",              hangarSlot);
-        System.out.printf("  Start Date       : %s%n",              startDate.format(Reservation.DATE_FORMAT));
-        System.out.printf("  End Date         : %s%n",              endDate.format(Reservation.DATE_FORMAT));
-        System.out.println(ReservationUtil.DIVIDER);
-    }
-
     private void printResult(String successMessage, ServiceResult result) {
         System.out.println("\n" + ReservationUtil.DIVIDER);
         if (result.isSuccess()) {
@@ -359,7 +353,7 @@ public class ReservationUI {
         System.out.println("\n  Cancelled. Returning to menu...\n");
     }
 
-    // ─── Input helpers (including new phone/email and deposit) ────────────
+    // ─── Input helpers (including phone/email and deposit) ────────────
     private String promptString(String prompt) {
         while (true) {
             System.out.print(prompt);
@@ -487,7 +481,28 @@ public class ReservationUI {
         }
     }
 
-    /** New helper: prompts for a deposit amount between 0 and maxAmount. Returns -1 if cancelled. */
+    /** New helper: prompts for a membership tier and returns discount percent (0-15). Returns -1 if cancelled. */
+    private double promptMembershipTier() {
+        System.out.println("\n  Membership Tier (discount applies to the base before VAT):");
+        System.out.println("    NONE      0%");
+        System.out.println("    SILVER    5%");
+        System.out.println("    GOLD     10%");
+        System.out.println("    PLATINUM 15%");
+        while (true) {
+            System.out.print("  Select tier (or 0 to cancel): ");
+            String input = scanner.nextLine().trim();
+            if (ReservationUtil.isCancelled(input)) return -1;
+            switch (input.toUpperCase()) {
+                case "NONE": return 0.0;
+                case "SILVER": return 5.0;
+                case "GOLD": return 10.0;
+                case "PLATINUM": return 15.0;
+                default: System.out.println("  [!] Invalid tier. Please choose NONE, SILVER, GOLD, or PLATINUM.");
+            }
+        }
+    }
+
+    /** Prompts for a deposit amount between 0 and maxAmount. Returns -1 if cancelled. */
     private double promptDeposit(double maxAmount) {
         while (true) {
             System.out.printf("  Enter deposit amount (max %.2f, or 0 to cancel): ", maxAmount);

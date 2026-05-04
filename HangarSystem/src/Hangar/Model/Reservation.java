@@ -16,6 +16,7 @@ public class Reservation {
     private LocalDate startDate;
     private LocalDate endDate;
     private String    status;
+    private double    discountPercent;   // NEW
 
     private Reservation() {}
 
@@ -26,6 +27,7 @@ public class Reservation {
     public LocalDate getStartDate()          { return startDate; }
     public LocalDate getEndDate()            { return endDate; }
     public String    getStatus()             { return status; }
+    public double    getDiscountPercent()    { return discountPercent; }   // NEW
 
     public void setReservationId(int v)         { this.reservationId = v; }
     public void setCustomerName(String v)       { this.customerName = v; }
@@ -34,6 +36,7 @@ public class Reservation {
     public void setStartDate(LocalDate v)       { this.startDate = v; }
     public void setEndDate(LocalDate v)         { this.endDate = v; }
     public void setStatus(String v)             { this.status = v; }
+    public void setDiscountPercent(double v)    { this.discountPercent = v; }   // NEW
 
     @Override
     public String toString() {
@@ -52,6 +55,7 @@ public class Reservation {
         private LocalDate startDate;
         private LocalDate endDate;
         private String    status = STATUS_ACTIVE;
+        private double    discountPercent = 0.0;   // NEW
 
         public Builder reservationId(int val)         { this.reservationId = val;      return this; }
         public Builder customerName(String val)       { this.customerName = val;       return this; }
@@ -60,6 +64,7 @@ public class Reservation {
         public Builder startDate(LocalDate val)       { this.startDate = val;          return this; }
         public Builder endDate(LocalDate val)         { this.endDate = val;            return this; }
         public Builder status(String val)             { this.status = val;             return this; }
+        public Builder discountPercent(double val)    { this.discountPercent = val;    return this; }   // NEW
 
         public Reservation build() {
             Reservation r        = new Reservation();
@@ -70,6 +75,7 @@ public class Reservation {
             r.startDate          = this.startDate;
             r.endDate            = this.endDate;
             r.status             = this.status;
+            r.discountPercent    = this.discountPercent;   // NEW
             return r;
         }
     }

@@ -11,6 +11,7 @@ import Util.ReservationUtil;
 import Util.ReservationUtil.ServiceResult;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -123,7 +124,7 @@ public class ReservationService {
         return ServiceResult.success(reservation);
     }
 
-    // New method: creates reservation AND invoice with deposit
+    // New method: creates reservation AND invoice with deposit, applying membership discount
     public ServiceResult createReservation(
             String    customerName,
             String    phone,
@@ -135,7 +136,8 @@ public class ReservationService {
             LocalDate startDate,
             LocalDate endDate,
             double    depositAmount,
-            String    paymentMethod) {
+            String    paymentMethod,
+            double    discountPercent) {               // NEW parameter
 
         if (!ReservationUtil.isValidSlot(hangarSlot))
             return ServiceResult.failure("Hangar slot '" + hangarSlot + "' does not exist.");
@@ -182,9 +184,10 @@ public class ReservationService {
                 existing.setStartDate(startDate);
                 existing.setEndDate(endDate);
                 existing.setStatus(Reservation.STATUS_ACTIVE);
+                existing.setDiscountPercent(discountPercent);   // NEW
                 if (dao.update(existing)) {
                     refreshSlotStatus(hangarSlot);
-                    int invId = billingService.createInvoiceForReservation(existing, depositAmount, paymentMethod);
+                    int invId = billingService.createInvoiceForReservation(existing, depositAmount, paymentMethod, discountPercent);
                     if (invId == -1) {
                         return ServiceResult.failure("Reservation reactivated but invoice creation failed.");
                     }
@@ -203,12 +206,13 @@ public class ReservationService {
                 .startDate(startDate)
                 .endDate(endDate)
                 .status(Reservation.STATUS_ACTIVE)
+                .discountPercent(discountPercent)       // NEW
                 .build();
 
         if (!dao.insert(reservation))
             return ServiceResult.failure("Database error: reservation could not be saved.");
 
-        int invId = billingService.createInvoiceForReservation(reservation, depositAmount, paymentMethod);
+        int invId = billingService.createInvoiceForReservation(reservation, depositAmount, paymentMethod, discountPercent);
         if (invId == -1) {
             dao.delete(reservation.getReservationId());
             return ServiceResult.failure("Failed to create invoice.");

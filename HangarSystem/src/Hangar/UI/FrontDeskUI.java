@@ -96,7 +96,7 @@ public class FrontDeskUI {
             return;
         }
 
-        // Generate invoice
+        // Generate invoice (uses stored discount)
         Invoice invoice = service.getInvoiceForCheckOut(res.getReservationId());
         if (invoice == null) {
             System.out.println("\n[!] Failed to generate invoice.");
@@ -222,6 +222,10 @@ public class FrontDeskUI {
             FrontDeskUtil.printWalkInRegistration(registered);
         }
 
+        // ── Membership tier prompt ─────────────────────────────────────────
+        double discountPercent = promptMembershipTier();
+        if (discountPercent < 0) { printCancelled(); return; }
+
         System.out.println();
         String estimatedDeparture = promptDateTime("Enter Estimated Departure (YYYY-MM-DD HH:MM): ");
         if (estimatedDeparture == null) { printCancelled(); return; }
@@ -229,9 +233,10 @@ public class FrontDeskUI {
         String checkInTime = java.time.LocalDateTime.now()
                 .format(FrontDeskService.DATETIME_FORMAT);
 
+        // Pass discount to service
         WalkInResult result = service.processWalkIn(
                 tailNumber, customerName, phone, email, aircraftModel,
-                wingspan, length, checkInTime, estimatedDeparture);
+                wingspan, length, checkInTime, estimatedDeparture, discountPercent);
 
         System.out.println();
         System.out.println(FrontDeskUtil.DIVIDER);
@@ -290,6 +295,26 @@ public class FrontDeskUI {
             if (input.equals("0")) return null;
             if (EMAIL_PATTERN.matcher(input).matches()) return input;
             System.out.println("  [!] Email must be a valid @gmail.com address. Enter 0 to cancel.");
+        }
+    }
+
+    private double promptMembershipTier() {
+        System.out.println("\n  Membership Tier (discount on base before VAT):");
+        System.out.println("    NONE      0%");
+        System.out.println("    SILVER    5%");
+        System.out.println("    GOLD     10%");
+        System.out.println("    PLATINUM 15%");
+        while (true) {
+            System.out.print("  Select tier (or 0 to cancel): ");
+            String input = scanner.nextLine().trim();
+            if (input.equals("0")) return -1;
+            switch (input.toUpperCase()) {
+                case "NONE": return 0.0;
+                case "SILVER": return 5.0;
+                case "GOLD": return 10.0;
+                case "PLATINUM": return 15.0;
+                default: System.out.println("  [!] Invalid tier. Please enter NONE, SILVER, GOLD, or PLATINUM.");
+            }
         }
     }
 
